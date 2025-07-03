@@ -1,0 +1,31 @@
+{
+  "name": "celestianote",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack serve --config webpack.config.js --open"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "TextAlive App API + three.js による作品",
+  "dependencies": {
+    "gsap": "^3.13.0",
+    "textalive-app-api": "^0.4.0",
+    "three": "^0.176.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "babel-loader": "^10.0.0",
+    "copy-webpack-plugin": "^13.0.0",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
+    "mini-css-extract-plugin": "^2.9.2",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.1"
+  }
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Celestia Note</title>
+    <!--<link rel="stylesheet" type="text/css" href="styles.css" /> -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap"
+    />
+  </head>
+  <body>
+    <audio id="media" class="hidden"></audio>
+
+    <!-- Three.js用キャンバス -->
+    <canvas id="sceneCanvas"></canvas>
+
+    <!-- 表示するUI。 -->
+    <div id="hologramBillboard" class="hologram-ui-3d" style="display: block">
+      <!-- 左矢印 -->
+      <div id="slidePrev" class="arrow arrow-left">◀</div>
+
+      <!-- 曲スライド領域 -->
+      <div class="slider-viewport">
+        <div class="slider-wrapper">
+          <!-- slides は JS で動的に生成 -->
+        </div>
+      </div>
+      <!-- 右矢印 -->
+      <div id="slideNext" class="arrow arrow-right">▶</div>
+    </div>
+    
+    <div id="fadeOverlay"></div>
+    <div id="vignetteOverlay"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  </body>
+</html>
