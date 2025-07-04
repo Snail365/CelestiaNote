@@ -10,9 +10,9 @@ import { Player } from 'textalive-app-api';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 //import { all, max } from 'three/tsl';
 //import GUI from 'three/examples/jsm/libs/lil-gui.module.min.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+// import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+// import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+// import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import './styles.css';
 
 // THREEバージョン確認
@@ -30,12 +30,12 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true,
 });
 renderer.setClearColor(0x000000, 0);
-renderer.autoClear = false; // 背景を透明にするために自動クリアを無効化
+renderer.autoClear = false;
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-// CSS3D Renderer（UI 用）
+// CSS3D Renderer（3DUI 用）
 const cssRenderer = new CSS3DRenderer();
 cssRenderer.domElement.classList.add('css3d-renderer');
 cssRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -55,21 +55,21 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, 1.6, 5); // ユーザーの目線高さ(1.6m)
 
-const bloomLayer = new THREE.Layers();
-bloomLayer.set(1); // Layer1をBloom専用として扱う
+// const bloomLayer = new THREE.Layers();
+// bloomLayer.set(1); // Layer1をBloom専用として扱う
 
-const renderScene = new RenderPass(scene, camera);
+// const renderScene = new RenderPass(scene, camera);
 
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  1.5,
-  0.4,
-  0.85
-);
+// const bloomPass = new UnrealBloomPass(
+//   new THREE.Vector2(window.innerWidth, window.innerHeight),
+//   1.5,
+//   0.5,
+//   0.9
+// );
 
-const bloomComposer = new EffectComposer(renderer);
-bloomComposer.addPass(renderScene);
-bloomComposer.addPass(bloomPass);
+// const bloomComposer = new EffectComposer(renderer);
+// bloomComposer.addPass(renderScene);
+// bloomComposer.addPass(bloomPass);
 
 const hudScene = new THREE.Scene();
 const hudCamera = new THREE.OrthographicCamera(
@@ -433,7 +433,7 @@ function updateClickHere() {
 
   const pos = new THREE.Vector3();
   clickHereTarget.getWorldPosition(pos);
-  clickHereObj.position.set(pos.x, pos.y + 2.0, pos.z);
+  clickHereObj.position.set(pos.x, pos.y + 1.7, pos.z);
   clickHereObj.lookAt(camera.position);
 }
 
@@ -727,8 +727,12 @@ class SafeTextAlivePlayer {
                     `  ↳ 戻す星群 idx=${idx} phrase="${data.text}" startTime=${data.startTime}`
                   );
                   // uTime を 0→1 にアニメーションして文字形状に戻す
-                  highlightConstellation(allLyricData[idx]);
-                  data.returned = true;
+                  const newData = displayLyricInStars(
+                    data.text,
+                    data.startTime,
+                    data.center
+                  );
+                  allLyricData[idx] = { ...data, ...newData, returned: true };
                 }
               });
             }
@@ -962,7 +966,7 @@ function onNewPhrase(phrase, position) {
   console.log('▶ onNewPhrase:', phrase.text, 'at', position);
   const data = displayLyricInStars(phrase.text, position);
   spawnExplosionStars(data.center);
-  //spawnNebulaAt(data.center, 4);
+  spawnNebulaAt(data.center, 4);
 
   data.returned = false;
   // 後で戻すためのデータを保存
@@ -1033,7 +1037,14 @@ function createLyricPoints(
   const keepArray = [];
 
   for (let i = 0; i < count; i++) {
-    posArray.push(...worldPositions[i].toArray());
+    const offset = new THREE.Vector3(
+      (Math.random() - 0.5) * 5,
+      (Math.random() - 0.5) * 5,
+      (Math.random() - 0.5) * 5
+    );
+    const initPos = worldPositions[i].clone().add(offset);
+    posArray.push(...initPos.toArray());
+
     const hue =
       Math.random() * (colorHueRange[1] - colorHueRange[0]) + colorHueRange[0];
     const col = new THREE.Color().setHSL(hue, 1, 0.7);
@@ -1042,7 +1053,7 @@ function createLyricPoints(
     const isKeep = keepIndices.includes(i);
     const baseSize =
       2.5 * Math.random() * (sizeRange[1] - sizeRange[0]) + sizeRange[0];
-    const enlargedSize = isKeep ? baseSize * 2 : baseSize; // ⭐星座用は2倍
+    const enlargedSize = isKeep ? baseSize * 2 : baseSize; // 星座用は2倍
     sizeArray.push(enlargedSize);
 
     keepArray.push(isKeep ? 1.0 : 0.0);
@@ -1056,7 +1067,7 @@ function createLyricPoints(
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     blending: THREE.AdditiveBlending,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
     uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
     vertexShader: /* glsl */ `
@@ -1085,11 +1096,35 @@ function createLyricPoints(
       }`,
   });
 
-  return new THREE.Points(geo, mat);
+  const points = new THREE.Points(geo, mat);
+
+  // 粒子をアニメーションして元の位置に集める
+  const posAttr = geo.getAttribute('position');
+  worldPositions.forEach((target, i) => {
+    const from = new THREE.Vector3(
+      posAttr.getX(i),
+      posAttr.getY(i),
+      posAttr.getZ(i)
+    );
+    gsap.to(from, {
+      x: target.x,
+      y: target.y,
+      z: target.z,
+      duration: 1.2,
+      delay: Math.random() * 0.3,
+      ease: 'power2.out',
+      onUpdate: () => {
+        posAttr.setXYZ(i, from.x, from.y, from.z);
+        posAttr.needsUpdate = true;
+      },
+    });
+  });
+
+  return points;
 }
 
 // ======= リファクタ後の displayLyricInStars =======
-function displayLyricInStars(text, startTime) {
+function displayLyricInStars(text, startTime, reusedCenter = null) {
   // 1) テキストから有効なピクセル座標を取得
   const { coords, canvasSize } = sampleTextAlphaIndices(text, {
     canvasSize: 1024,
@@ -1121,37 +1156,85 @@ function displayLyricInStars(text, startTime) {
     keepIndices,
   });
 
-  // 5) 初期配置(視界の中心)・グループに追加
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  const basecenter = camera.position.clone().add(dir.multiplyScalar(50));
+  // カメラの前方・右方向・上方向ベクトルを取得
+  const forward = new THREE.Vector3();
+  const right = new THREE.Vector3();
+  const up = new THREE.Vector3();
+  camera.getWorldDirection(forward); // 前方向
+  right.crossVectors(forward, camera.up).normalize(); // 右方向
+  up.copy(camera.up).normalize(); // 上方向
 
-  const randomOffset = new THREE.Vector3(
-    (Math.random() - 0.5) * 20,
-    (Math.random() - 0.5) * 20,
-    (Math.random() - 0.5) * 2
-  );
+  // 中心点（カメラから前方50〜70の範囲で少し右寄り）
+  const distance = 45 + Math.random() * 20; // 45〜65
+  const rightBias = 10 + Math.random() * 20; // 右方向に10〜30のバイアス
+  const upOffset = (Math.random() - 0.5) * 30; // 上下ランダム ±15
+  const forwardOffset = (Math.random() - 0.5) * 20; // 前後にも少し散らす
 
-  const center = basecenter.clone().add(randomOffset);
+  const baseCenter = camera.position
+    .clone()
+    .add(forward.clone().multiplyScalar(distance))
+    .add(right.clone().multiplyScalar(rightBias))
+    .add(up.clone().multiplyScalar(upOffset))
+    .add(forward.clone().multiplyScalar(forwardOffset));
 
+  const center = reusedCenter || baseCenter;
   points.position.copy(center);
   lyricsGroup.add(points);
 
-  // 6) アニメーション開始
+  // アニメーション開始
   const mat = points.material;
   gsap.to(mat.uniforms.uTime, { value: 1, duration: 1.0, ease: 'power2.out' });
+
   gsap.to(mat.uniforms.uOpacity, {
     value: 1.0,
     duration: 0.8,
     ease: 'power2.out',
-    onComplete() {
-      // フェードアウト後に星座化準備
+    onComplete: () => {
+      // フェードアウト時に散らす処理
+      const posAttr = points.geometry.getAttribute('position');
+      const scatterTargets = [];
+
+      for (let i = 0; i < posAttr.count; i++) {
+        const from = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+
+        if (keepIndices.includes(i)) {
+          scatterTargets.push(null); // 星座用は固定
+        } else {
+          const dir = new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+          )
+            .normalize()
+            .multiplyScalar(2 + Math.random() * 4);
+
+          scatterTargets.push(from.clone().add(dir));
+        }
+      }
+
+      scatterTargets.forEach((target, i) => {
+        if (!target) return;
+        const current = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+        gsap.to(current, {
+          x: target.x,
+          y: target.y,
+          z: target.z,
+          delay: 8.0,
+          duration: 2.0,
+          ease: 'power2.out',
+          onUpdate: () => {
+            posAttr.setXYZ(i, current.x, current.y, current.z);
+            posAttr.needsUpdate = true;
+          },
+        });
+      });
+
       gsap.to(mat.uniforms.uOpacity, {
         value: 0.0,
         delay: 8.0,
         duration: 1.0,
         ease: 'power2.out',
-        onComplete() {
+        onComplete: () => {
           // 星座化
           createConstellation({ text, startTime, center, points, keepIndices });
         },
@@ -1159,7 +1242,6 @@ function displayLyricInStars(text, startTime) {
     },
   });
 
-  // 7) 必要な情報を返却（loop用）
   return { text, startTime, center, points };
 }
 
@@ -1229,6 +1311,7 @@ function createConstellation({ points, keepIndices, center, text, startTime }) {
   });
 }
 
+// 星座の線を生成
 function createConstellationLines(positions, offset = 0.7) {
   const linePoints = [];
 
@@ -1248,61 +1331,62 @@ function createConstellationLines(positions, offset = 0.7) {
     color: 0x88ccff,
     transparent: true,
     opacity: 0.7,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
+    blending: THREE.AdditiveBlending,
   });
 
   return new THREE.LineSegments(geometry, material);
 }
 
-function highlightConstellation(data) {
-  if (!data || !data.points || !data.keepIndices) return;
+// function highlightConstellation(data) {
+//   if (!data || !data.points || !data.keepIndices) return;
 
-  const geo = data.points.geometry;
-  const aSize = geo.getAttribute('aSize');
+//   const geo = data.points.geometry;
+//   const aSize = geo.getAttribute('aSize');
 
-  data.points.layers.enable(1);
+//   data.points.layers.enable(1);
 
-  // アニメーション設定（拡大→縮小を繰り返す）
-  data.keepIndices.forEach((i) => {
-    const baseSize = aSize.getX(i);
-    const temp = { value: baseSize };
+//   // アニメーション設定（拡大→縮小を繰り返す）
+//   data.keepIndices.forEach((i) => {
+//     const baseSize = aSize.getX(i);
+//     const temp = { value: baseSize };
 
-    gsap.to(temp, {
-      value: baseSize * 1.5,
-      duration: 0.6,
-      yoyo: true,
-      repeat: 3,
-      ease: 'sine.inOut',
-      onUpdate: () => {
-        aSize.setX(i, temp.value);
-        aSize.needsUpdate = true;
-      },
-    });
-  });
+//     gsap.to(temp, {
+//       value: baseSize * 1.5,
+//       duration: 0.6,
+//       yoyo: true,
+//       repeat: 3,
+//       ease: 'sine.inOut',
+//       onUpdate: () => {
+//         aSize.setX(i, temp.value);
+//         aSize.needsUpdate = true;
+//       },
+//     });
+//   });
 
-  // 線も明滅させる（線オブジェクトが存在する場合）
-  if (data.constellationLines) {
-    const lineMat = data.constellationLines.material;
-    gsap.fromTo(
-      lineMat,
-      {
-        opacity: 1.0,
-      },
-      {
-        opacity: 0.0,
-        duration: 0.6,
-        yoyo: true,
-        repeat: 3,
-        ease: 'sine.inOut',
-        onComplete: () => {
-          lineMat.opacity = 1.0;
-          data.points.layers.disable(1);
-        },
-      }
-    );
-  }
-}
+//   // 線も明滅させる（線オブジェクトが存在する場合）
+//   if (data.constellationLines) {
+//     const lineMat = data.constellationLines.material;
+//     gsap.fromTo(
+//       lineMat,
+//       {
+//         opacity: 1.0,
+//       },
+//       {
+//         opacity: 0.0,
+//         duration: 0.6,
+//         yoyo: true,
+//         repeat: 3,
+//         ease: 'sine.inOut',
+//         onComplete: () => {
+//           lineMat.opacity = 1.0;
+//           data.points.layers.disable(1);
+//         },
+//       }
+//     );
+//   }
+// }
 
 const persistentStarsGroup = new THREE.Group();
 scene.add(persistentStarsGroup);
@@ -1410,82 +1494,82 @@ function spawnExplosionStars(center, count = 25) {
 }
 
 // astro.pngを多く配置し、星雲が出る確率を上げておく。
-// const textures = [
-//   './texture/astro1.png',
-//   './texture/astro2.png',
-//   './texture/astro3.png',
-//   './texture/astro1.png',
-//   './texture/astro2.png',
-//   './texture/astro3.png',
-//   './texture/astro1.png',
-//   './texture/astro2.png',
-//   './texture/astro3.png',
-// ];
-// const nebulaTextures = [];
-// const textureLoader = new THREE.TextureLoader();
-// // プリロード
-// textures.forEach((url) => {
-//   textureLoader.load(
-//     url,
-//     (tex) => nebulaTextures.push(tex),
-//     undefined,
-//     (err) => console.error('Nebula load error', url, err)
-//   );
-// });
-// // 基本星雲を生成するが、イラストなどもランダムで表示する。
-// function spawnNebulaAt(center, count) {
-//   if (nebulaTextures.length === 0) {
-//     console.warn('🌌 nebula textures not yet loaded');
-//     return;
-//   }
+const textures = [
+  './texture/astro1.png',
+  './texture/astro2.png',
+  './texture/astro3.png',
+  './texture/astro1.png',
+  './texture/astro2.png',
+  './texture/astro3.png',
+  './texture/astro1.png',
+  './texture/astro2.png',
+  './texture/astro3.png',
+];
+const nebulaTextures = [];
+const textureLoader = new THREE.TextureLoader();
+// プリロード
+textures.forEach((url) => {
+  textureLoader.load(
+    url,
+    (tex) => nebulaTextures.push(tex),
+    undefined,
+    (err) => console.error('Nebula load error', url, err)
+  );
+});
+// 基本星雲を生成するが、イラストなどもランダムで表示する。
+function spawnNebulaAt(center, count) {
+  if (nebulaTextures.length === 0) {
+    console.warn('🌌 nebula textures not yet loaded');
+    return;
+  }
 
-//   for (let i = 0; i < count; i++) {
-//     // 表示する画像をランダムで決定。
-//     const texture =
-//       nebulaTextures[Math.floor(Math.random() * nebulaTextures.length)];
+  for (let i = 0; i < count; i++) {
+    // 表示する画像をランダムで決定。
+    const texture =
+      nebulaTextures[Math.floor(Math.random() * nebulaTextures.length)];
 
-//     const geometry = new THREE.PlaneGeometry(1, 1);
-//     const material = new THREE.MeshBasicMaterial({
-//       map: texture,
-//       transparent: true,
-//       opacity: 0,
-//       depthWrite: false,
-//       depthTest: true,
-//       blending: THREE.AdditiveBlending,
-//       side: THREE.DoubleSide,
-//     });
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
 
-//     const plane = new THREE.Mesh(geometry, material);
-//     plane.renderOrder = 777;
-//     plane.frustumCulled = false;
-//     const spread = 30;
-//     const offset = new THREE.Vector3(
-//       (Math.random() - 0.5) * spread,
-//       (Math.random() - 0.5) * spread,
-//       (Math.random() - 0.5) * spread
-//     );
-//     plane.position.copy(center).add(offset);
+    const plane = new THREE.Mesh(geometry, material);
+    plane.renderOrder = 777;
+    plane.frustumCulled = false;
+    const spread = 30;
+    const offset = new THREE.Vector3(
+      (Math.random() - 0.5) * spread,
+      (Math.random() - 0.5) * spread,
+      (Math.random() - 0.5) * spread
+    );
+    plane.position.copy(center).add(offset);
 
-//     const size = 8 + Math.random() * 6;
-//     plane.scale.set(size, size, 1);
-//     plane.userData.lookAtCamera = true;
+    const size = 8 + Math.random() * 6;
+    plane.scale.set(size, size, 1);
+    plane.userData.lookAtCamera = true;
 
-//     persistentStarsGroup.add(plane);
+    persistentStarsGroup.add(plane);
 
-//     gsap.to(material, {
-//       opacity: 0.4 + Math.random() * 0.4,
-//       duration: 1.5,
-//       ease: 'power2.out',
-//     });
+    gsap.to(material, {
+      opacity: 0.1 + Math.random() * 0.3,
+      duration: 1.5,
+      ease: 'power2.out',
+    });
 
-//     gsap.to(plane.scale, {
-//       x: size + 8,
-//       y: size + 8,
-//       duration: 3.0,
-//       ease: 'sine.inOut',
-//     });
-//   }
-// }
+    gsap.to(plane.scale, {
+      x: size + 8,
+      y: size + 8,
+      duration: 3.0,
+      ease: 'sine.inOut',
+    });
+  }
+}
 
 function startShootingStars() {
   setInterval(() => {
@@ -1633,6 +1717,8 @@ function createAfterglowParticles(position) {
     size: 0.07,
     transparent: true,
     opacity: 1,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
   });
 
   const particles = new THREE.Points(geometry, material);
@@ -1652,7 +1738,7 @@ function createAfterglowParticles(position) {
 }
 
 // 再利用用ベクトルを関数外で定義
-const tempBox = new THREE.Box3();
+// const tempBox = new THREE.Box3();
 const tempVec1 = new THREE.Vector3();
 const tempVec2 = new THREE.Vector3();
 const direction = new THREE.Vector3();
@@ -2224,13 +2310,13 @@ function animate() {
   }
 
   // === [1] 通常描画前に bloom レイヤーだけを描画 ===
-  scene.traverse(darkenNonBloomed);
-  camera.layers.set(1); // bloomLayer のみ描画
-  bloomComposer.render(); // UnrealBloomPass 用
-  scene.traverse(restoreMaterials);
+  // scene.traverse(darkenNonBloomed);
+  // camera.layers.set(1); // bloomLayer のみ描画
+  // bloomComposer.render(); // UnrealBloomPass 用
+  // scene.traverse(restoreMaterials);
 
   // === [2] 通常描画 ===
-  camera.layers.set(0); // 通常レイヤー
+  // camera.layers.set(0); // 通常レイヤー
   renderer.clear();
   renderer.render(scene, camera);
   renderer.clearDepth(); // 深度バッファをクリア

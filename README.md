@@ -1,51 +1,78 @@
 # CelestiaNote
-### SnailPop
+### by SnailPop
+
 
 ## 概要
+
 CelestiaNoteは、Three.jsとTextAlive APIを活用したインタラクティブな星空体験型音楽ビジュアライザーです。
-マジカルミライ2025プログラミングコンテスト応募作品として制作しました。
+ユーザーの視線の先に広がる歌詞と、それらが変化して生まれる星座が、夜空の幻想的な空間を描き出します。
+本作品は**マジカルミライ2025 プログラミングコンテスト**応募作品として制作しました。
 
 ## 特徴
-- WASD or 十字キーで水平移動、マウス左ボタンのクリック＆ドラッグで視点の移動が可能。
-- Three.jsによるリアルタイムな星空のレンダリング
-- TextAlive API連携による歌詞同期表示(単純なフォントではなく、星たちが
-集まってできるような演出)
-- CSSRendererを用いた、宙に浮いているような誘導用UIや曲選択UIの実装
-- GSAPによる滑らかなカメラアニメーション
 
-## 技術スタック
+- **視点操作・移動：**WASD/十字キーで移動、マウス左クリック＆ドラッグで視点の回転
+- **星空のレンダリング：**Three.jsによるリアルタイムな星空描画
+- **歌詞の星化演出：**TextAlive APIによって同期された歌詞が、星の集まりとして現れる演出
+- **UI表現：**CSSRendererを用いた、空中に浮かぶUIの実装（曲選択・誘導表示）
+- **アニメーション演出：**GSAPによるカメラや星の動きの滑らかなアニメーション
+
+## 使用技術
+
 - JavaScript (ES6 Modules)  
-- Three.js (3D描画)  
-- TextAlive API (歌詞同期再生)  
-- GSAP (アニメーション)  
-- Webpack (バンドル、ビルド)  
-- CSS3DRenderer (3D空間にHTML/CSSを配置)
+- Three.js：3Dシーンの構築・レンダリング
+- TextAlive API：歌詞データと音楽再生の制御
+- GSAP：アニメーション制御
+- Webpack：モジュールバンドル・ビルド管理 
+- CSS3DRenderer：HTMLベースのUIを3D空間に配置
 
 ## 動作環境
-- Chrome推奨 その他ブラウザは動作未確認
-- Node.Js 何以上かまだ調べてない
+
+- GPUによるWebGLレンダリングが可能な環境
+- Google Chrome（最新版推奨）
+- Node.Js v16以上（推奨）
 
 ## インストールと起動
-githubからダウンロードなどする
-CelestiaNoteディレクトリ内でコマンドプロンプトを開く
+
+### 1.リポジトリをクローンまたはZIPでダウンロード
+```sh
+git clone https://github.com/yourname/CelestiaNote.git
+cd CelestiaNote
+```
+
+### 2.依存パッケージのインストール
+```sh
+npm install
+```
+
+### 3.ビルド
+```sh
 npm run build
-num start
+```
 
-### 開発サーバ用
-webpack.config.js内の
-devtool: false,　をコメントアウト
-mode: 'production', を'development'に書き換え
+### 4.本番用ローカルサーバ起動（別途 serve 等が必要）
+```sh
+npx serve dist
+```
 
-## ファイル構成
-・ src/ -- ソースコード(JavaScript, CSS, HTMLテンプレート)
-・ dist/ -- ビルド成果物(航海用ファイル)
-・ webpack.config.js -- ビルド設定
-・ package.json -- 依存設定とスクリプト
+### 開発用に起動する場合
+
+webpack.config.js の以下の設定を編集
+
+```sh
+// devtool: false,
+mode: 'development'
+```
+
+その後、npm run build → npx serve dist で確認可能
+
+## ファイル内容
+
+・ src/ -- ソースコード(JavaScript, CSS, HTMLテンプレート、モデルなど)
+・ dist/ -- ビルド成果物（デプロイ用）
+・ webpack.config.js -- Webpack設定
+・ package.json -- 依存管理とスクリプト
 
 ## ライセンス
-何書けばいいか分からない
 
-## お問い合わせ
-・ GitHub Issues
-・ (メール mygmail@gmail.com)か(X(旧Twitter) myXaca)
+使用ライブラリ（Three.js, TextAlive APIなど）は各ライセンスに準拠
 

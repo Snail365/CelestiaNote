@@ -38,7 +38,7 @@ module.exports = {
   },
   optimization: {
     splitChunks: {
-      chunks: 'all', // ← vendor系は自動で分割
+      chunks: 'all',
     },
     runtimeChunk: 'single', // ← ランタイムコードを分離しキャッシュ効率アップ
   },

@@ -1,3 +1,6 @@
+/*!******************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js!./src/styles.css ***!
+  \******************************************************************/
 * {
   box-sizing: border-box;
 }
@@ -61,8 +64,8 @@ body:active {
   pointer-events: none;
   background: radial-gradient(
     circle,
-    rgba(0, 0, 0, 0) 40%,
-    rgba(0, 0, 0, 0.8) 80%
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 1) 60%
   );
   opacity: 0;
   transition: opacity 0s ease;
