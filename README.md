@@ -1,10 +1,10 @@
-# CelestiaNote
+# CelestiaNote -セレスティアノート-
 ### by SnailPop
 
 
 ## 概要
 
-CelestiaNoteは、Three.jsとTextAlive APIを活用したインタラクティブな星空体験型音楽ビジュアライザーです。
+**CelestiaNote -セレスティアノート-**は、Three.jsとTextAlive APIを活用したインタラクティブな星空体験型音楽ビジュアライザーです。
 ユーザーの視線の先に広がる歌詞と、それらが変化して生まれる星座が、夜空の幻想的な空間を描き出します。
 本作品は**マジカルミライ2025 プログラミングコンテスト**応募作品として制作しました。
 
