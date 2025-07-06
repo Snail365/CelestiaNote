@@ -100,7 +100,7 @@ const GUImaterial = new THREE.SpriteMaterial({
   opacity: 1,
 });
 const GUIsprite = new THREE.Sprite(GUImaterial);
-GUIsprite.scale.set(80, 60, 1);
+GUIsprite.scale.set(160, 120, 1);
 GUIsprite.position.set(
   -window.innerWidth / 2 + 20,
   -window.innerHeight / 2 + 20,
@@ -115,7 +115,7 @@ const GUIMouseMaterial = new THREE.SpriteMaterial({
   opacity: 1,
 });
 const GUIMouseSprite = new THREE.Sprite(GUIMouseMaterial);
-GUIMouseSprite.scale.set(35, 35, 1);
+GUIMouseSprite.scale.set(70, 70, 1);
 GUIMouseSprite.position.set(
   -window.innerWidth / 2 + 130,
   -window.innerHeight / 2 + 40,
@@ -130,7 +130,7 @@ const GUIMouseArrowMaterial = new THREE.SpriteMaterial({
   opacity: 1,
 });
 const GUIMouseArrowSprite = new THREE.Sprite(GUIMouseArrowMaterial);
-GUIMouseArrowSprite.scale.set(25, 25, 1);
+GUIMouseArrowSprite.scale.set(50, 50, 1);
 GUIMouseArrowSprite.position.set(
   -window.innerWidth / 2 + 130,
   -window.innerHeight / 2 + 40,
@@ -147,7 +147,7 @@ setInterval(() => {
 }, 1000);
 
 function updateHudSpritePosition() {
-  GUIsprite.position.set(hudCamera.left + 60, hudCamera.bottom + 50, 1);
+  GUIsprite.position.set(hudCamera.left + 90, hudCamera.bottom + 70, 1);
 }
 
 let mouseDragTimeline = null;
@@ -159,14 +159,14 @@ function startMouseDragLoop(centered = false) {
   let baseX, baseY;
   if (centered) {
     baseX = (hudCamera.left + hudCamera.right) / 2;
-    baseY = hudCamera.bottom + 40;
+    baseY = hudCamera.bottom + 45;
   } else {
-    baseX = hudCamera.left + 130;
-    baseY = hudCamera.bottom + 40;
+    baseX = hudCamera.left + 230;
+    baseY = hudCamera.bottom + 45;
   }
 
   GUIMouseSprite.position.set(baseX, baseY, 1);
-  GUIMouseArrowSprite.position.set(baseX + 30, baseY + 10, 1);
+  GUIMouseArrowSprite.position.set(baseX + 50, baseY + 20, 1);
   GUIMouseSprite.material.rotation = 0;
   GUIMouseArrowSprite.material.rotation = -Math.PI / 16;
 
@@ -180,8 +180,8 @@ function startMouseDragLoop(centered = false) {
   mouseDragTimeline.to(
     GUIMouseSprite.position,
     {
-      x: baseX + 30,
-      y: baseY + 10,
+      x: baseX + 70,
+      y: baseY + 40,
     },
 
     0
@@ -242,7 +242,7 @@ floorLoader.load(
 );
 const starRightPositions = [
   {
-    position: new THREE.Vector3(2.8, 0, 4.6),
+    position: new THREE.Vector3(2.8, 0, 6),
     rotation: new THREE.Euler(0, Math.PI / 5, -Math.PI / 5),
     scale: new THREE.Vector3(0.125, 0.125, 0.125),
   },
@@ -323,15 +323,28 @@ const starRightPositions = [
   },
 ];
 
+const starClones = []; // 全ての starClone をここに保持
+
 const StarRightLoader = new GLTFLoader();
 StarRightLoader.load('./Model/StarRightModel/StarRight.glb', function (gltf) {
-  let starRight = gltf.scene;
+  const starRight = gltf.scene;
 
   starRightPositions.forEach((t) => {
-    const starClone = starRight.clone();
+    const starClone = starRight.clone(true); // true: deep clone
     starClone.position.copy(t.position);
+    starClone.rotation.copy(t.rotation);
     starClone.scale.copy(t.scale);
+
+    // ⭐ 材質を個別に複製（色変更に必要）
+    starClone.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material = child.material.clone();
+        child.material.color = new THREE.Color(0xaaaaaa); // 初期色：グレー
+      }
+    });
+
     scene.add(starClone);
+    starClones.push(starClone);
   });
 });
 
@@ -342,8 +355,8 @@ ampLoader.load(
   function (gltf) {
     amp = gltf.scene;
     amp.scale.set(0.24, 0.24, 0.24);
-    amp.position.set(-3, 0, 5.5);
-    amp.rotation.y = (Math.PI * 3) / 5; // 90度回転
+    amp.position.set(-2.0, 0, 7.3);
+    amp.rotation.y = (Math.PI * 4) / 5;
     scene.add(amp);
     onModelLoaded(amp);
     console.log('✅ GLBモデル読み込み完了');
@@ -360,8 +373,8 @@ titleLoader.load(
   function (gltf) {
     title = gltf.scene;
     title.scale.set(0.5, 0.5, 0.5);
-    title.position.set(2.5, 0, 6);
-    title.rotation.y = (-Math.PI * 2) / 3; // 90度回転
+    title.position.set(2.5, 0, 4);
+    title.rotation.y = -Math.PI / 3; // 90度回転
     scene.add(title);
     onModelLoaded(title);
     console.log('✅ GLBモデル読み込み完了');
@@ -378,8 +391,8 @@ micLoader.load(
   function (gltf) {
     mic = gltf.scene;
     mic.scale.set(0.12, 0.11, 0.12);
-    mic.position.set(1.25, 0, 2.5);
-    mic.rotation.y = -Math.PI / 4;
+    mic.position.set(0.8, 0, 2.0);
+    mic.rotation.y = -Math.PI / 8;
     scene.add(mic);
     onModelLoaded(mic);
     console.log('✅ GLBモデル読み込み完了');
@@ -394,7 +407,26 @@ micLoader.load(
   }
 );
 
-const totalModels = 3; // 読み込むモデル数（amp, title, mic）
+let telescope;
+const telescopeLoader = new GLTFLoader();
+telescopeLoader.load(
+  './Model/TeleScopeModel/Telescope.glb',
+  function (gltf) {
+    telescope = gltf.scene;
+    telescope.scale.set(0.5, 0.5, 0.5);
+    telescope.position.set(-1.5, 0, 2.4);
+    telescope.rotation.y = Math.PI;
+    scene.add(telescope);
+    onModelLoaded(telescope);
+    console.log('✅ GLBモデル読み込み完了');
+  },
+  undefined, // ロード中の進行状況コールバック(デバッグ用)
+  function (error) {
+    console.error('❌ GLB読み込みエラー:', error);
+  }
+);
+
+const totalModels = 4; // 読み込むモデル数（amp, title, mic）
 let loadedModels = 0;
 
 function onModelLoaded(model) {
@@ -413,6 +445,13 @@ billboardElement.style.display = 'block'; // 念のため上書き
 hologramObject.scale.set(0.005, 0.005, 0.005);
 hologramObject.visible = false;
 scene.add(hologramObject);
+
+const ampMessageElement = document.getElementById('ampMessageBillboard');
+const ampHologramObject = new CSS3DObject(ampMessageElement);
+ampMessageElement.style.display = 'block'; // 念のため
+ampHologramObject.scale.set(0.005, 0.005, 0.005);
+ampHologramObject.visible = false;
+scene.add(ampHologramObject);
 
 const wrapper = document.createElement('div');
 wrapper.id = 'clickHereContainer';
@@ -441,7 +480,12 @@ function showClickHereAboveTelescope() {
   clickHereTarget = telescope;
 
   clickHereObj.visible = true;
-  clickHereElement.textContent = 'Click Telescope';
+  clickHereElement.innerHTML = `
+      <p style="text-align: center; margin: 0px;">
+        Click Here<br>
+        ⇩
+      </p>
+    `;
   clickHereElement.style.opacity = 0;
 
   // フェードイン演出
@@ -458,7 +502,13 @@ function showClickHereAboveMic() {
   clickHereTarget = mic;
 
   clickHereObj.visible = true;
-  clickHereElement.textContent = 'Click Mic';
+  clickHereElement.innerHTML = `
+      <p style="text-align: center; margin: 0px;">
+        Select Music<br>
+        ⇩
+      </p>
+    `;
+  //clickHereElement.textContent = 'Click Mic';
   clickHereElement.style.opacity = 0;
 
   gsap.to(clickHereElement, {
@@ -495,31 +545,8 @@ console.log('初期のカメラQuaternion:', initialCameraQuaternion);
 /* --------------------------
   グローバルフラグ
 --------------------------*/
-let phase = 'init'; // フェーズ管理(init, fadingOut, smartphoneZoom, telescopeZooming, exploringStars, selectMusic, resettingCamera, viewing)
+let phase = 'init'; // フェーズ管理
 let resettingCamera = false; // カメラリセット中、animate() の controls.update() を抑制する
-
-/* --------------------------
-  スマホモデルと望遠鏡モデルのロードと CSS3D UI 配置
---------------------------*/
-
-let telescope;
-const telescopeLoader = new GLTFLoader();
-telescopeLoader.load(
-  './Model/TeleScopeModel/Telescope.glb',
-  function (gltf) {
-    telescope = gltf.scene;
-    telescope.scale.set(0.5, 0.5, 0.5);
-    telescope.position.set(-1.5, 0, 2.5);
-    telescope.rotation.y = Math.PI;
-    scene.add(telescope);
-    collidableObjects.push(telescope);
-    console.log('✅ GLBモデル読み込み完了');
-  },
-  undefined, // ロード中の進行状況コールバック(デバッグ用)
-  function (error) {
-    console.error('❌ GLB読み込みエラー:', error);
-  }
-);
 
 function fadeOutOverlay(callback) {
   const overlay = document.getElementById('fadeOverlay');
@@ -564,12 +591,12 @@ function createStarSphere() {
   }
 
   // 天球のジオメトリ（大きめの球体）
-  const geometry = new THREE.SphereGeometry(50, 64, 64);
+  const geometry = new THREE.SphereGeometry(80, 64, 64);
 
   // 内側から見えるようにマテリアルのsideを指定
   const material = new THREE.MeshBasicMaterial({
     // ほんのり青っぽく
-    color: 0x000010,
+    color: 0x101020,
     side: THREE.BackSide,
     transparent: true,
     opacity: 1,
@@ -726,16 +753,23 @@ class SafeTextAlivePlayer {
                   console.log(
                     `  ↳ 戻す星群 idx=${idx} phrase="${data.text}" startTime=${data.startTime}`
                   );
+
+                  const phrase = this.player.video.findPhrase(data.startTime);
+                  const endTime = phrase?.endTime || data.startTime + 4000;
+                  const phraseDuration = endTime - data.startTime;
+
                   // uTime を 0→1 にアニメーションして文字形状に戻す
                   const newData = displayLyricInStars(
                     data.text,
                     data.startTime,
-                    data.center
+                    data.center,
+                    phraseDuration
                   );
                   allLyricData[idx] = { ...data, ...newData, returned: true };
                 }
               });
             }
+
             lastPosition = position;
             if (phase !== 'exploringStars') return;
 
@@ -964,7 +998,12 @@ const allLyricData = [];
 
 function onNewPhrase(phrase, position) {
   console.log('▶ onNewPhrase:', phrase.text, 'at', position);
-  const data = displayLyricInStars(phrase.text, position);
+
+  const startTime = phrase.startTime;
+  const endTime = phrase.endTime || startTime + 4000; // endTime が無ければ仮に4秒に
+  const duration = endTime - startTime;
+
+  const data = displayLyricInStars(phrase.text, position, null, duration);
   spawnExplosionStars(data.center);
   spawnNebulaAt(data.center, 4);
 
@@ -976,51 +1015,59 @@ function onNewPhrase(phrase, position) {
 }
 
 // ======= ヘルパー関数群 =======
-/**
- * 歌詞テキストをキャンバスに描画し、
- * 明るいピクセル座標のインデックス配列を返す
- */
-function sampleTextAlphaIndices(
+function getWorldPositionsFromText(
   text,
   {
     canvasSize = 1024,
-    xStep = 2,
+    xStep = 1,
     yStep = 1,
     threshold = 128,
     font = 'bold 48px "Noto Sans JP", Meiryo, sans-serif',
+    scale = 120,
   } = {}
 ) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = canvasSize;
   const ctx = canvas.getContext('2d');
+
+  // テキスト描画
   ctx.clearRect(0, 0, canvasSize, canvasSize);
   ctx.fillStyle = 'white';
   ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, canvasSize / 2, canvasSize / 2);
-  const data = ctx.getImageData(0, 0, canvasSize, canvasSize).data;
+
+  const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize).data;
   const coords = [];
+
+  // アルファ判定された座標収集
   for (let y = 0; y < canvasSize; y += yStep) {
     for (let x = 0; x < canvasSize; x += xStep) {
-      if (data[(y * canvasSize + x) * 4 + 3] > threshold) {
-        coords.push({ x, y });
-      }
+      const alpha = imageData[(y * canvasSize + x) * 4 + 3];
+      if (alpha > threshold) coords.push({ x, y });
     }
   }
-  return { coords, canvasSize };
-}
 
-/**
- * 画面内ランダムオフセットを加えたワールド座標にマッピング
- */
-function mapToWorldPositions(coords, { canvasSize, scale = 120 }) {
-  return coords.map(({ x, y }) => {
-    const nx = (x / canvasSize - 0.5) * scale;
-    const ny = (0.5 - y / canvasSize) * scale;
+  // 中心（重心）を計算
+  let sumX = 0,
+    sumY = 0;
+  coords.forEach(({ x, y }) => {
+    sumX += x;
+    sumY += y;
+  });
+  const centerX = sumX / coords.length;
+  const centerY = sumY / coords.length;
+
+  // キャンバス→ワールド座標（中心揃え）
+  const worldPositions = coords.map(({ x, y }) => {
+    const nx = ((x - centerX) / canvasSize) * scale;
+    const ny = ((centerY - y) / canvasSize) * scale;
     const nz = (Math.random() - 0.5) * 1.5;
     return new THREE.Vector3(nx, ny, nz);
   });
+
+  return worldPositions;
 }
 
 /**
@@ -1028,19 +1075,19 @@ function mapToWorldPositions(coords, { canvasSize, scale = 120 }) {
  */
 function createLyricPoints(
   worldPositions,
-  { sizeRange = [0.1, 0.3], colorHueRange = [0, 1], keepIndices = [] } = {}
+  { sizeRange = [0.1, 0.3], colorHueRange = [0, 1], sortDirection = null } = {}
 ) {
   const count = worldPositions.length;
   const posArray = [];
   const colorArray = [];
   const sizeArray = [];
-  const keepArray = [];
+  const opacityArray = new Float32Array(count).fill(0); // 初期は全て非表示
 
   for (let i = 0; i < count; i++) {
     const offset = new THREE.Vector3(
-      (Math.random() - 0.5) * 5,
-      (Math.random() - 0.5) * 5,
-      (Math.random() - 0.5) * 5
+      (Math.random() - 0.5) * 7,
+      (Math.random() - 0.5) * 7,
+      (Math.random() - 0.5) * 7
     );
     const initPos = worldPositions[i].clone().add(offset);
     posArray.push(...initPos.toArray());
@@ -1050,71 +1097,108 @@ function createLyricPoints(
     const col = new THREE.Color().setHSL(hue, 1, 0.7);
     colorArray.push(col.r, col.g, col.b);
 
-    const isKeep = keepIndices.includes(i);
     const baseSize =
-      2.5 * Math.random() * (sizeRange[1] - sizeRange[0]) + sizeRange[0];
-    const enlargedSize = isKeep ? baseSize * 2 : baseSize; // 星座用は2倍
-    sizeArray.push(enlargedSize);
+      2.0 * Math.random() * (sizeRange[1] - sizeRange[0]) + sizeRange[0];
 
-    keepArray.push(isKeep ? 1.0 : 0.0);
+    sizeArray.push(baseSize);
   }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
   geo.setAttribute('aColor', new THREE.Float32BufferAttribute(colorArray, 3));
   geo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizeArray, 1));
-  geo.setAttribute('aKeep', new THREE.Float32BufferAttribute(keepArray, 1));
+  geo.setAttribute(
+    'aOpacity',
+    new THREE.Float32BufferAttribute(opacityArray, 1)
+  );
 
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     blending: THREE.AdditiveBlending,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
-    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    uniforms: {
+      uTime: { value: 0 },
+      uOpacity: { value: 1 }, // 全体の乗算係数（常時1）
+    },
     vertexShader: /* glsl */ `
       attribute float aSize;
       attribute vec3 aColor;
-      attribute float aKeep;
+      attribute float aOpacity;
       varying vec3 vColor;
-      varying float vKeep;
+      varying float vOpacity;
       uniform float uTime;
       void main(){
         vColor = aColor;
-        vKeep = aKeep;
+        vOpacity = aOpacity;
         vec4 mv = modelViewMatrix * vec4(position,1.0);
-        gl_PointSize = aSize * (300.0 / -mv.z) * clamp(uTime,0.0,1.0);
+        gl_PointSize = aSize * (300.0 / -mv.z) * clamp(uTime, 0.0, 1.0);
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vColor;
-      varying float vKeep;
+
+      varying float vOpacity;
       uniform float uOpacity;
       void main(){
         float d = distance(gl_PointCoord, vec2(0.5));
-        if(d>0.5) discard;
-        float alpha = mix(uOpacity, 1.0, vKeep);
-        gl_FragColor = vec4(vColor, alpha);
+        if(d > 0.5) discard;
+        float alpha = mix(0.0, 1.0, vOpacity);
+        gl_FragColor = vec4(vColor, alpha * uOpacity);
       }`,
   });
 
   const points = new THREE.Points(geo, mat);
 
-  // 粒子をアニメーションして元の位置に集める
+  // --- 並べ替え（左→右）してアニメーション ---
   const posAttr = geo.getAttribute('position');
-  worldPositions.forEach((target, i) => {
+  const opacityAttr = geo.getAttribute('aOpacity');
+  const sortedIndices = [...Array(count).keys()];
+
+  if (sortDirection) {
+    sortedIndices.sort((a, b) => {
+      const aVal = worldPositions[a].dot(sortDirection);
+      const bVal = worldPositions[b].dot(sortDirection);
+      return aVal - bVal;
+    });
+
+    const first = worldPositions[sortedIndices[0]];
+    const last = worldPositions[sortedIndices[sortedIndices.length - 1]];
+    console.log('🎯 Sorted direction test:');
+    console.log('First pos:', first.toArray());
+    console.log('Last pos:', last.toArray());
+  }
+
+  sortedIndices.forEach((sortedIndex, idx) => {
     const from = new THREE.Vector3(
-      posAttr.getX(i),
-      posAttr.getY(i),
-      posAttr.getZ(i)
+      posAttr.getX(sortedIndex),
+      posAttr.getY(sortedIndex),
+      posAttr.getZ(sortedIndex)
     );
-    gsap.to(from, {
-      x: target.x,
-      y: target.y,
-      z: target.z,
-      duration: 1.2,
-      delay: Math.random() * 0.3,
+    const to = worldPositions[sortedIndex];
+
+    // フェードイン順に透明度を上げる
+    gsap.to(opacityArray, {
+      [sortedIndex]: 1.0,
+      delay: idx * 0.0002,
+      duration: 0.3,
       ease: 'power2.out',
       onUpdate: () => {
-        posAttr.setXYZ(i, from.x, from.y, from.z);
+        opacityAttr.array[sortedIndex] = opacityArray[sortedIndex];
+        opacityAttr.needsUpdate = true;
+      },
+    });
+
+    // 星の収束アニメーション（集まる動き）
+    gsap.to(from, {
+      x: to.x,
+      y: to.y,
+      z: to.z,
+      delay: idx * 0.0002,
+      duration: 0.5,
+      ease: 'power2.out',
+      onUpdate: () => {
+        posAttr.setXYZ(sortedIndex, from.x, from.y, from.z);
         posAttr.needsUpdate = true;
       },
     });
@@ -1123,65 +1207,88 @@ function createLyricPoints(
   return points;
 }
 
-// ======= リファクタ後の displayLyricInStars =======
-function displayLyricInStars(text, startTime, reusedCenter = null) {
-  // 1) テキストから有効なピクセル座標を取得
-  const { coords, canvasSize } = sampleTextAlphaIndices(text, {
+function getAdjustedSortDirection(worldPositions) {
+  // カメラの右方向ベクトル
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  const right = new THREE.Vector3()
+    .crossVectors(forward, camera.up)
+    .normalize();
+
+  // 並べ替え用に x に沿ってソート（もとの worldPositions は左→右に並んでるはず）
+  const sortedIndices = [...Array(worldPositions.length).keys()].sort(
+    (a, b) => {
+      return worldPositions[a].x - worldPositions[b].x;
+    }
+  );
+
+  // 並べ替えた上で、first → last ベクトルを得る
+  const first = worldPositions[sortedIndices[0]];
+  const last = worldPositions[sortedIndices[sortedIndices.length - 1]];
+  const spanVec = new THREE.Vector3().subVectors(last, first).normalize();
+
+  // spanVec がカメラの right 方向とどれだけ一致してるか調べる
+  const dot = spanVec.dot(right);
+  console.log('First pos:', first.toArray());
+  console.log('Last pos:', last.toArray());
+  console.log('SpanVec:', spanVec.toArray());
+  console.log('Right:', right.toArray());
+  console.log('Dot product:', dot);
+
+  // right 方向と逆なら反転（つまり right ベクトルを使うと逆向きになるので、反転する）
+  return dot >= 0 ? right : right.negate();
+}
+
+function displayLyricInStars(
+  text,
+  startTime,
+  reusedCenter = null,
+  duration = 4000
+) {
+  const existing = allLyricData.find(
+    (d) => d.text === text && d.startTime === startTime
+  );
+  if (existing) {
+    removeConstellation(existing);
+  }
+
+  const scatterDelay = Math.max(duration / 1000, 1.5);
+
+  const worldPositions = getWorldPositionsFromText(text, {
     canvasSize: 1024,
-    xStep: 2,
+    xStep: 1,
     yStep: 1,
-    threshold: 128,
+    scale: 120,
     font: 'bold 48px "Noto Sans JP", Meiryo',
   });
 
-  // 2) キャンバス座標 → ワールド座標へマッピング
-  const worldPositions = mapToWorldPositions(coords, {
-    canvasSize,
-    scale: 120,
-  });
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
 
-  // 3) 星座に残す粒子インデックスをランダムに選出
-  const total = worldPositions.length;
-  const keepCount = Math.min(6, total); // 星座として残す数
-  const keepIndices = [];
-  while (keepIndices.length < keepCount) {
-    const i = Math.floor(Math.random() * total);
-    if (!keepIndices.includes(i)) keepIndices.push(i);
-  }
+  const distance = 55 + Math.random() * 5;
+  const baseCenter = camera.position
+    .clone()
+    .add(forward.clone().multiplyScalar(distance));
+  const center = reusedCenter || baseCenter;
 
-  // 4) Points オブジェクト生成
+  const sortDirection = getAdjustedSortDirection(worldPositions);
+
   const points = createLyricPoints(worldPositions, {
     sizeRange: [0.1, 0.25],
     colorHueRange: [0, 1],
-    keepIndices,
+    sortDirection,
   });
 
-  // カメラの前方・右方向・上方向ベクトルを取得
-  const forward = new THREE.Vector3();
-  const right = new THREE.Vector3();
-  const up = new THREE.Vector3();
-  camera.getWorldDirection(forward); // 前方向
-  right.crossVectors(forward, camera.up).normalize(); // 右方向
-  up.copy(camera.up).normalize(); // 上方向
-
-  // 中心点（カメラから前方50〜70の範囲で少し右寄り）
-  const distance = 45 + Math.random() * 20; // 45〜65
-  const rightBias = 10 + Math.random() * 20; // 右方向に10〜30のバイアス
-  const upOffset = (Math.random() - 0.5) * 30; // 上下ランダム ±15
-  const forwardOffset = (Math.random() - 0.5) * 20; // 前後にも少し散らす
-
-  const baseCenter = camera.position
-    .clone()
-    .add(forward.clone().multiplyScalar(distance))
-    .add(right.clone().multiplyScalar(rightBias))
-    .add(up.clone().multiplyScalar(upOffset))
-    .add(forward.clone().multiplyScalar(forwardOffset));
-
-  const center = reusedCenter || baseCenter;
   points.position.copy(center);
   lyricsGroup.add(points);
 
-  // アニメーション開始
+  const sortedIndices = [...Array(worldPositions.length).keys()];
+  sortedIndices.sort((a, b) => {
+    const aVal = worldPositions[a].dot(sortDirection);
+    const bVal = worldPositions[b].dot(sortDirection);
+    return aVal - bVal;
+  });
+
   const mat = points.material;
   gsap.to(mat.uniforms.uTime, { value: 1, duration: 1.0, ease: 'power2.out' });
 
@@ -1190,203 +1297,707 @@ function displayLyricInStars(text, startTime, reusedCenter = null) {
     duration: 0.8,
     ease: 'power2.out',
     onComplete: () => {
-      // フェードアウト時に散らす処理
       const posAttr = points.geometry.getAttribute('position');
-      const scatterTargets = [];
+      const opacityAttr = points.geometry.getAttribute('aOpacity');
+      const opacityArray = opacityAttr.array;
 
+      const scatterTargets = [];
       for (let i = 0; i < posAttr.count; i++) {
         const from = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-
-        if (keepIndices.includes(i)) {
-          scatterTargets.push(null); // 星座用は固定
-        } else {
-          const dir = new THREE.Vector3(
-            Math.random() - 0.5,
-            Math.random() - 0.5,
-            Math.random() - 0.5
-          )
-            .normalize()
-            .multiplyScalar(2 + Math.random() * 4);
-
-          scatterTargets.push(from.clone().add(dir));
-        }
+        const dir = new THREE.Vector3(
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+          Math.random() - 0.5
+        )
+          .normalize()
+          .multiplyScalar(2 + Math.random() * 4);
+        scatterTargets.push(from.clone().add(dir));
       }
 
-      scatterTargets.forEach((target, i) => {
+      sortedIndices.forEach((i, idx) => {
+        const target = scatterTargets[i];
         if (!target) return;
+
         const current = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+
         gsap.to(current, {
           x: target.x,
           y: target.y,
           z: target.z,
-          delay: 8.0,
-          duration: 2.0,
+          delay: scatterDelay - 0.8 + idx * 0.0002,
+          duration: 1.5,
           ease: 'power2.out',
           onUpdate: () => {
             posAttr.setXYZ(i, current.x, current.y, current.z);
             posAttr.needsUpdate = true;
           },
         });
-      });
 
-      gsap.to(mat.uniforms.uOpacity, {
-        value: 0.0,
-        delay: 8.0,
-        duration: 1.0,
-        ease: 'power2.out',
-        onComplete: () => {
-          // 星座化
-          createConstellation({ text, startTime, center, points, keepIndices });
-        },
+        gsap.to(opacityArray, {
+          [i]: 0.0,
+          delay: scatterDelay - 0.8 + idx * 0.0002,
+          duration: 1.5,
+          ease: 'power2.out',
+          onUpdate: () => {
+            opacityAttr.array[i] = opacityArray[i];
+            opacityAttr.needsUpdate = true;
+          },
+        });
       });
     },
   });
 
+  // === 🔧 変更点：既存のターゲットの中から最も近いものに向けて線を伸ばす ===
+
+  if (constellationTargets.length === 0) {
+    console.warn('No constellation targets available');
+    return { text, startTime, center, points };
+  }
+
+  // 最近傍のターゲットを探す
+  let nearestTarget = null;
+  let minDist = Infinity;
+  for (const target of constellationTargets) {
+    const dist = center.distanceTo(target.position);
+    if (dist < minDist) {
+      minDist = dist;
+      nearestTarget = target;
+    }
+  }
+
+  if (!nearestTarget) {
+    console.warn('最近傍ターゲットが見つかりませんでした');
+    return { text, startTime, center, points };
+  }
+
+  const targetPos = nearestTarget.position.clone();
+
+  console.log(`📍 Nearest constellation: ${nearestTarget.name}`);
+  console.log('center:', center.toArray());
+  console.log('targetPos:', targetPos.toArray());
+  console.log('distance:', minDist.toFixed(2));
+
+  //drawDebugLine(center, targetPos, 0xffff00); // 黄色の線
+
+  // 閾値内なら星座生成
+  const maxDistanceThreshold = 5;
+  if (minDist < maxDistanceThreshold) {
+    console.log(`🌟 星座「${nearestTarget.name}」を生成`);
+    createConstellationFromData({
+      data: nearestTarget.data,
+      position: targetPos,
+      name: nearestTarget.name,
+    });
+  } else {
+    console.log(`距離が遠すぎて星座未生成`);
+  }
+
+  // --- ⭐ ヒント矢印表示処理 ---
+  if (!safePlayer?.loopOnEnd && minDist > 5 && minDist < 50) {
+    const dir = new THREE.Vector3().subVectors(targetPos, center).normalize();
+    createHintParticlesAt(center, dir, minDist, scatterDelay);
+  } else if (safePlayer?.loopOnEnd) {
+    console.log('🔁 ループ中のためヒント表示はスキップ');
+  }
+
   return { text, startTime, center, points };
 }
 
-/**
- * 歌詞の星を星座化して Scene に追加し、データを返す
- */
-function createConstellation({ points, keepIndices, center, text, startTime }) {
-  const posAttr = points.geometry.getAttribute('position');
+function createHintParticlesAt(center, dir, dist, scatterDelay) {
+  const hintParticleCount = 300;
+  const hintPositions = [];
+  const hintColors = [];
+  const hintGeometry = new THREE.BufferGeometry();
+  const tempColor = new THREE.Color();
 
-  // center を基準にしたローカル拡散先を計算
-  const localCenter = points.worldToLocal(center.clone()); // ←中心をローカルに変換
-  const targetPositions = keepIndices.map(() => {
-    const offset = new THREE.Vector3(
-      (Math.random() - 0.5) * 13, // X方向 ±10
-      (Math.random() - 0.5) * 13, // Y方向 ±10
-      (Math.random() - 0.5) * 13 // Z方向 ±10
-    );
-    return localCenter.clone().add(offset);
-  });
+  // ==== 📏 距離に応じたパラメータ ====
+  const clampedDist = Math.max(5, Math.min(dist, 50));
+  const t = (clampedDist - 5) / 40;
 
-  const worldStars = [];
+  const baseOpacity = 0.9 * (1 - t);
+  const forwardLength = 5 + 10 * (1 - t); // dir方向の長さ（近いほど長く）
+  const spreadRadius = 2.0 + 6.0 * t; // 底面半径（遠いほど広がる）
 
-  // 各インデックスの頂点をアニメーション
-  keepIndices.forEach((i, idx) => {
-    const from = new THREE.Vector3(
-      posAttr.getX(i),
-      posAttr.getY(i),
-      posAttr.getZ(i)
-    );
-    const to = targetPositions[idx];
+  // ==== 🔄 指向性ベクトル（軸：dir、垂直：up） ====
+  const up = new THREE.Vector3(0, 1, 0);
+  const basis = new THREE.Matrix4().lookAt(new THREE.Vector3(), dir, up); // ローカル座標系作成
 
-    gsap.to(from, {
-      x: to.x,
-      y: to.y,
-      z: to.z,
-      duration: 2.0,
-      ease: 'power2.out',
-      onUpdate: () => {
-        posAttr.setXYZ(i, from.x, from.y, from.z);
-        posAttr.needsUpdate = true;
-      },
-      onComplete: () => {
-        // 最後の1つが終わった後に線を引く
-        if (idx === keepIndices.length - 1) {
-          keepIndices.forEach((i) => {
-            const local = new THREE.Vector3(
-              posAttr.getX(i),
-              posAttr.getY(i),
-              posAttr.getZ(i)
-            );
-            worldStars.push(points.localToWorld(local.clone()));
-          });
+  for (let i = 0; i < hintParticleCount; i++) {
+    const h = Math.random() * forwardLength; // 高さ（鋭さ）
+    const r = (1 - h / forwardLength) * spreadRadius; // 高さに応じて底面に近づくほど広がる
 
-          const lines = createConstellationLines(worldStars, 0.7);
-          scene.add(lines);
+    const angle = Math.random() * Math.PI * 2;
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r;
+    const z = -h;
 
-          const data = allLyricData.find(
-            (d) => d.text === text && d.startTime === startTime
-          );
-          if (data) {
-            data.keepIndices = keepIndices;
-            data.constellationLines = lines;
-          }
-        }
-      },
-    });
-  });
-}
+    const localPos = new THREE.Vector3(x, y, z).applyMatrix4(basis);
+    const worldPos = center.clone().add(localPos);
 
-// 星座の線を生成
-function createConstellationLines(positions, offset = 0.7) {
-  const linePoints = [];
+    hintPositions.push(worldPos.x, worldPos.y, worldPos.z);
 
-  for (let i = 0; i < positions.length - 1; i++) {
-    const a = positions[i];
-    const b = positions[i + 1];
-
-    const dir = new THREE.Vector3().subVectors(b, a).normalize();
-    const start = a.clone().add(dir.clone().multiplyScalar(offset));
-    const end = b.clone().add(dir.clone().multiplyScalar(-offset));
-
-    linePoints.push(start, end);
+    // 彩度：近いほど高彩度
+    const hue = 0.1 + Math.random() * 0.4;
+    const saturation = 1.0 - t;
+    const lightness = 0.7;
+    tempColor.setHSL(hue, saturation, lightness);
+    hintColors.push(tempColor.r, tempColor.g, tempColor.b);
   }
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-  const material = new THREE.LineBasicMaterial({
-    color: 0x88ccff,
+  // ==== 🧱 Geometry & Material ====
+  hintGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(hintPositions, 3)
+  );
+  hintGeometry.setAttribute(
+    'color',
+    new THREE.Float32BufferAttribute(hintColors, 3)
+  );
+
+  const hintMaterial = new THREE.PointsMaterial({
+    size: 0.2,
+    vertexColors: true,
     transparent: true,
-    opacity: 0.7,
-    depthTest: false,
+    opacity: 0,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
 
-  return new THREE.LineSegments(geometry, material);
+  const hintParticles = new THREE.Points(hintGeometry, hintMaterial);
+  scene.add(hintParticles);
+
+  // ==== 💫 フェードイン＋明滅 ====
+  const pulse = { value: 0 };
+  const pulseTween = gsap.to(pulse, {
+    value: Math.PI * 4,
+    duration: 2.0,
+    repeat: -1,
+    ease: 'sine.inOut',
+    onUpdate: () => {
+      const wave = (Math.sin(pulse.value) + 1) / 2;
+      hintMaterial.opacity = baseOpacity * (0.3 + 0.6 * wave);
+    },
+  });
+
+  // ==== 🕒 一定時間後に削除 ====
+  setTimeout(() => {
+    pulseTween.kill();
+    gsap.to(hintMaterial, {
+      opacity: 0.0,
+      duration: 1.0,
+      ease: 'power2.in',
+      onComplete: () => {
+        scene.remove(hintParticles);
+        hintGeometry.dispose();
+        hintMaterial.dispose();
+      },
+    });
+  }, scatterDelay * 1000);
 }
 
-// function highlightConstellation(data) {
-//   if (!data || !data.points || !data.keepIndices) return;
+function removeConstellation(data) {
+  // 星座ラインをフェードアウトして削除
+  if (data.constellationLines) {
+    const lineMat = data.constellationLines.material;
+    gsap.to(lineMat, {
+      opacity: 0,
+      duration: 1.0,
+      ease: 'power2.out',
+      onComplete: () => {
+        scene.remove(data.constellationLines);
+        data.constellationLines.geometry.dispose();
+        data.constellationLines.material.dispose();
+        data.constellationLines = null;
+      },
+    });
+  }
 
-//   const geo = data.points.geometry;
-//   const aSize = geo.getAttribute('aSize');
+  // 星座構成の粒子を散らす → フェードアウト → 削除
+  if (data.points && data.keepIndices) {
+    const posAttr = data.points.geometry.getAttribute('position');
+    const sizeAttr = data.points.geometry.getAttribute('aSize');
+    const mat = data.points.material;
 
-//   data.points.layers.enable(1);
+    data.keepIndices.forEach((i) => {
+      const from = new THREE.Vector3(
+        posAttr.getX(i),
+        posAttr.getY(i),
+        posAttr.getZ(i)
+      );
+      const dir = new THREE.Vector3(
+        Math.random() - 0.5,
+        Math.random() - 0.5,
+        Math.random() - 0.5
+      )
+        .normalize()
+        .multiplyScalar(2 + Math.random() * 4);
+      const to = from.clone().add(dir);
 
-//   // アニメーション設定（拡大→縮小を繰り返す）
-//   data.keepIndices.forEach((i) => {
-//     const baseSize = aSize.getX(i);
-//     const temp = { value: baseSize };
+      gsap.to(from, {
+        x: to.x,
+        y: to.y,
+        z: to.z,
+        duration: 1.2,
+        ease: 'power2.out',
+        onUpdate: () => {
+          posAttr.setXYZ(i, from.x, from.y, from.z);
+          posAttr.needsUpdate = true;
+        },
+      });
 
-//     gsap.to(temp, {
-//       value: baseSize * 1.5,
-//       duration: 0.6,
-//       yoyo: true,
-//       repeat: 3,
-//       ease: 'sine.inOut',
-//       onUpdate: () => {
-//         aSize.setX(i, temp.value);
-//         aSize.needsUpdate = true;
-//       },
-//     });
-//   });
+      // サイズを小さくして消していく（任意）
+      if (sizeAttr) {
+        const s = { value: sizeAttr.getX(i) };
+        gsap.to(s, {
+          value: 0.0,
+          duration: 1.2,
+          onUpdate: () => {
+            sizeAttr.setX(i, s.value);
+            sizeAttr.needsUpdate = true;
+          },
+        });
+      }
+    });
 
-//   // 線も明滅させる（線オブジェクトが存在する場合）
-//   if (data.constellationLines) {
-//     const lineMat = data.constellationLines.material;
-//     gsap.fromTo(
-//       lineMat,
-//       {
-//         opacity: 1.0,
-//       },
-//       {
-//         opacity: 0.0,
-//         duration: 0.6,
-//         yoyo: true,
-//         repeat: 3,
-//         ease: 'sine.inOut',
-//         onComplete: () => {
-//           lineMat.opacity = 1.0;
-//           data.points.layers.disable(1);
-//         },
-//       }
-//     );
-//   }
-// }
+    // 全体のフェードアウト
+    gsap.to(mat.uniforms.uOpacity, {
+      value: 0.0,
+      duration: 1.2,
+      ease: 'power2.out',
+      onComplete: () => {
+        lyricsGroup.remove(data.points);
+        data.points.geometry.dispose();
+        data.points.material.dispose();
+        data.points = null;
+      },
+    });
+  }
+}
+const generatedConstellations = new Set();
+function createConstellationFromData({ data, position, name }) {
+  if (generatedConstellations.has(name)) {
+    console.log(`⚠️ 星座 "${name}" は既に生成済みです`);
+    return;
+  }
+
+  const group = new THREE.Group();
+
+  const center = new THREE.Vector3();
+  data.stars.forEach(([x, y, z]) => {
+    center.x += x;
+    center.y += y;
+    center.z += z;
+  });
+  center.divideScalar(data.stars.length);
+
+  group.position.copy(position);
+
+  // 星を配置
+  data.stars.forEach((star) => {
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffffcc })
+    );
+    const pos = new THREE.Vector3(...star).sub(center);
+    s.position.copy(pos);
+    group.add(s);
+  });
+
+  // 線で接続
+  data.connections.forEach(([a, b]) => {
+    const start = new THREE.Vector3(...data.stars[a]).sub(center);
+    const end = new THREE.Vector3(...data.stars[b]).sub(center);
+    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+    const line = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0x86cecb })
+    );
+    group.add(line);
+  });
+
+  scene.add(group);
+
+  const lookTarget = new THREE.Vector3().copy(camera.position);
+  group.lookAt(lookTarget);
+
+  // ✅ 登録
+  generatedConstellations.add(name);
+
+  updateStarCloneColors();
+  updateStarSphereColor();
+
+  if (generatedConstellations.size === 1) {
+    startShootingStars();
+  }
+}
+
+const constellationsData = {
+  hercules: {
+    stars: [
+      [0, 0, 0],
+      [6, 9, 0.2],
+      [-6, 9, -0.2],
+      [6, 18, 0],
+      [-6, 18, 0],
+    ],
+    connections: [
+      [0, 1],
+      [0, 2],
+      [1, 3],
+      [2, 4],
+      [3, 4],
+    ],
+    size: 16,
+  },
+
+  canisMajor: {
+    stars: [
+      [0, 0, 0],
+      [5, 6, 0],
+      [10, 3, 0.2],
+      [15, 0, -0.2],
+      [5, -6, 0.1],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [0, 4],
+    ],
+    size: 15,
+  },
+
+  ursaMinor: {
+    stars: [
+      [0, 0, 0],
+      [3, 3, 0.2],
+      [6, 6, -0.2],
+      [9, 9, 0],
+      [12, 12, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+    size: 12,
+  },
+
+  draco: {
+    stars: [
+      [0, 0, 0],
+      [3, 3, 0.3],
+      [6, 6, -0.2],
+      [9, 9, 0.1],
+      [12, 6, 0],
+      [15, 3, -0.1],
+      [18, 0, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+    ],
+    size: 18,
+  },
+
+  capricornus: {
+    stars: [
+      [0, 0, 0],
+      [6, 0, 0.1],
+      [3, 6, -0.1],
+      [0, 12, 0],
+      [-3, 6, 0],
+      [-6, 0, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+    size: 12,
+  },
+
+  crux: {
+    stars: [
+      [0, 0, 0],
+      [0, 11.25, 0],
+      [7.5, 5.625, 0.375],
+      [-7.5, 5.625, -0.375],
+    ],
+    connections: [
+      [0, 1],
+      [2, 3],
+    ],
+    size: 12,
+  },
+
+  pegasus: {
+    stars: [
+      [0, 0, 0],
+      [11.25, 0, 0.375],
+      [11.25, 11.25, -0.375],
+      [0, 11.25, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 0],
+    ],
+    size: 12,
+  },
+
+  leo: {
+    stars: [
+      [0, 0, 0],
+      [7.5, 3.75, 0.1875],
+      [15, 0, -0.1875],
+      [11.25, 11.25, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+    ],
+    size: 15,
+  },
+
+  andromeda: {
+    stars: [
+      [0, 0, 0],
+      [3.75, 7.5, 0.375],
+      [7.5, 15, -0.375],
+      [11.25, 22.5, 0.1875],
+      [15, 30, -0.1875],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+    size: 16,
+  },
+
+  taurus: {
+    stars: [
+      [0, 0, 0],
+      [-5.625, 11.25, 0],
+      [-11.25, 22.5, -0.375],
+      [-16.875, 33.75, 0.375],
+      [-22.5, 22.5, 0],
+      [-28.125, 11.25, -0.1875],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+    ],
+    size: 16,
+  },
+
+  lyra: {
+    stars: [
+      [0, 0, 0],
+      [11.25, 0, 0.375],
+      [5.625, 11.25, 0],
+      [5.625, 5.625, 3.75],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 0],
+      [2, 3],
+    ],
+    size: 12,
+  },
+
+  scorpius: {
+    stars: [
+      [0, 0, 0],
+      [3.75, 7.5, 0],
+      [7.5, 11.25, -0.375],
+      [11.25, 7.5, 0],
+      [15, 0, 0.375],
+      [11.25, -7.5, 0],
+      [7.5, -11.25, -0.375],
+      [3.75, -7.5, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+    ],
+    size: 13,
+  },
+
+  aquarius: {
+    stars: [
+      [0, 0, 0],
+      [3.75, 3.75, 0.375],
+      [7.5, 0, -0.375],
+      [11.25, 3.75, 0.1875],
+      [15, 0, -0.1875],
+      [18.75, 3.75, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+    ],
+    size: 15,
+  },
+
+  orion: {
+    stars: [
+      [0, 0, 0],
+      [7.5, 15, 0.375],
+      [-7.5, 15, -0.375],
+      [0, 30, 0],
+      [11.25, -7.5, 0.375],
+      [-11.25, -7.5, -0.375],
+      [0, -18.75, 0],
+    ],
+    connections: [
+      [0, 1],
+      [0, 2],
+      [1, 3],
+      [2, 3],
+      [0, 4],
+      [0, 5],
+      [4, 6],
+      [5, 6],
+    ],
+    size: 16,
+  },
+
+  cassiopeia: {
+    stars: [
+      [0, 0, 0],
+      [7.5, 7.5, 0.375],
+      [15, 0, 0],
+      [22.5, 7.5, -0.375],
+      [30, 0, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+    size: 15,
+  },
+
+  cygnus: {
+    stars: [
+      [0, 0, 0],
+      [0, 7.5, 0.375],
+      [0, 15, -0.375],
+      [-7.5, 7.5, 0],
+      [7.5, 7.5, 0],
+    ],
+    connections: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+      [1, 4],
+    ],
+    size: 10,
+  },
+};
+
+const constellationTargets = []; // 星座ターゲット（配置された位置と参照データ）
+
+function placeConstellationTargets({
+  // 初期設定
+  count = 10,
+  minDistance = 40,
+  cameraDistance = 55,
+  minPolarAngle = (Math.PI * 2) / 14, // 上方向の制限（例）引数からは変更しない
+  maxPolarAngle = (Math.PI * 4) / 8, // 下方向の制限（例）引数からは変更しない
+}) {
+  constellationTargets.length = 0;
+  const keys = Object.keys(constellationsData);
+  const selectedKeys = [];
+
+  const forward = new THREE.Vector3();
+  if (camera) camera.getWorldDirection(forward);
+
+  while (selectedKeys.length < count && keys.length > 0) {
+    const idx = Math.floor(Math.random() * keys.length);
+    const key = keys.splice(idx, 1)[0];
+    const data = constellationsData[key];
+
+    let tryCount = 0;
+    while (tryCount < 300) {
+      // ランダムな方向ベクトルを生成（球面上の点）
+      const theta = Math.random() * 2 * Math.PI; // 0 - 360°
+      const phi = Math.acos(2 * Math.random() - 1); // 0 - 180°
+      const dir = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi) * Math.sin(theta)
+      );
+
+      // dirの極座標のpolar angleを計算（acos(dir.y)）
+      const polarAngle = Math.acos(dir.y);
+
+      // 望遠鏡の上下回転範囲内かチェック
+      if (polarAngle < minPolarAngle || polarAngle > maxPolarAngle) {
+        tryCount++;
+        continue; // 範囲外なら再生成
+      }
+
+      // （必要ならカメラ前方との角度制限もここで入れられます）
+
+      const pos = camera
+        ? camera.position.clone().add(dir.multiplyScalar(cameraDistance))
+        : dir.multiplyScalar(cameraDistance);
+
+      const tooClose = constellationTargets.some(
+        (target) => target.position.distanceTo(pos) < minDistance + data.size
+      );
+
+      if (!tooClose) {
+        constellationTargets.push({
+          name: key,
+          data,
+          position: pos,
+        });
+        selectedKeys.push(key);
+        break;
+      }
+
+      tryCount++;
+    }
+  }
+  if (constellationTargets.length < count) {
+    console.log(
+      `⚠️ ${count}個中${constellationTargets.length}個しか配置できませんでした`
+    );
+  }
+
+  console.log('🌌 Placed constellation targets:', constellationTargets);
+}
+
+const constellationDebugGroup = new THREE.Group();
+scene.add(constellationDebugGroup);
 
 const persistentStarsGroup = new THREE.Group();
 scene.add(persistentStarsGroup);
@@ -1493,7 +2104,6 @@ function spawnExplosionStars(center, count = 25) {
   // フェードアウトせず永続的に残す（必要に応じて opacity も調整可能）
 }
 
-// astro.pngを多く配置し、星雲が出る確率を上げておく。
 const textures = [
   './texture/astro1.png',
   './texture/astro2.png',
@@ -1516,7 +2126,7 @@ textures.forEach((url) => {
     (err) => console.error('Nebula load error', url, err)
   );
 });
-// 基本星雲を生成するが、イラストなどもランダムで表示する。
+// 星雲を生成
 function spawnNebulaAt(center, count) {
   if (nebulaTextures.length === 0) {
     console.warn('🌌 nebula textures not yet loaded');
@@ -1542,7 +2152,7 @@ function spawnNebulaAt(center, count) {
     const plane = new THREE.Mesh(geometry, material);
     plane.renderOrder = 777;
     plane.frustumCulled = false;
-    const spread = 30;
+    const spread = 50;
     const offset = new THREE.Vector3(
       (Math.random() - 0.5) * spread,
       (Math.random() - 0.5) * spread,
@@ -1550,14 +2160,14 @@ function spawnNebulaAt(center, count) {
     );
     plane.position.copy(center).add(offset);
 
-    const size = 8 + Math.random() * 6;
+    const size = 10 + Math.random() * 10;
     plane.scale.set(size, size, 1);
     plane.userData.lookAtCamera = true;
 
     persistentStarsGroup.add(plane);
 
     gsap.to(material, {
-      opacity: 0.1 + Math.random() * 0.3,
+      opacity: 0.15 + Math.random() * 0.3,
       duration: 1.5,
       ease: 'power2.out',
     });
@@ -1571,15 +2181,39 @@ function spawnNebulaAt(center, count) {
   }
 }
 
+let shootingStarLoopStarted = false;
+
 function startShootingStars() {
-  setInterval(() => {
-    //if (phase === 'exploringStars') {
-    const count = Math.random() < 0.3 ? 2 : 1;
-    for (let i = 0; i < count; i++) {
-      spawnShootingStar();
+  if (shootingStarLoopStarted) return;
+  shootingStarLoopStarted = true;
+
+  let lastSpawn = 0;
+
+  function loop() {
+    const now = performance.now();
+    const foundCount = generatedConstellations.size; // ← 星座の発見数
+
+    // === 🌟 出現間隔を動的調整 ===
+    const baseInterval = 8000; // ms
+    const interval = Math.max(1000, baseInterval - foundCount * 500); // 最短1秒
+
+    if (now - lastSpawn > interval) {
+      lastSpawn = now;
+
+      // === 🌠 生成数を動的調整 ===
+      const baseCount = 1;
+      const extra = foundCount;
+      const count = baseCount + Math.floor(Math.random() * (1 + extra));
+
+      for (let i = 0; i < count; i++) {
+        spawnShootingStar();
+      }
     }
-    //}
-  }, 2000 + Math.random() * 10000);
+
+    requestAnimationFrame(loop);
+  }
+
+  loop();
 }
 
 function spawnShootingStar() {
@@ -1590,25 +2224,29 @@ function spawnShootingStar() {
   const colors = [];
 
   const distance = 30;
-  const spreadX = 20;
-  const spreadY = 10;
+  const spreadRadius = 30; // camera center からの広がり範囲
 
+  // カメラの視線ベクトル（正面方向）
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
 
-  const basePosition = new THREE.Vector3()
+  // cameraの中心前方（注視点）からの球面ランダム生成
+  const center = new THREE.Vector3()
     .copy(camera.position)
     .add(direction.multiplyScalar(distance));
 
-  const offsetX = (Math.random() - 0.5) * spreadX * 2;
-  const offsetY = (Math.random() - 0.5) * spreadY * 2;
-  const offsetZ = (Math.random() - 0.5) * 0.3;
+  // ランダム方向に微小なオフセット（球面座標で）
+  const theta = Math.random() * 2 * Math.PI;
+  const phi = Math.acos(2 * Math.random() - 1);
+  const r = Math.random() * spreadRadius;
 
-  const start = new THREE.Vector3(
-    basePosition.x + offsetX,
-    basePosition.y + offsetY,
-    basePosition.z + offsetZ
+  const offset = new THREE.Vector3(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi)
   );
+
+  const start = center.clone().add(offset);
   const end = start
     .clone()
     .add(
@@ -1627,7 +2265,7 @@ function spawnShootingStar() {
     const point = start.clone().lerp(end, ratio);
     positions.push(point.x, point.y, point.z);
 
-    sizes.push(0.1 + ratio * 0.3); // * x.xで拡大サイズ
+    sizes.push(0.1 + ratio * 0.3);
 
     const color = colorStart.clone().lerp(colorEnd, ratio);
     colors.push(color.r, color.g, color.b);
@@ -1641,28 +2279,28 @@ function spawnShootingStar() {
   geometry.setAttribute('aColor', new THREE.Float32BufferAttribute(colors, 3));
 
   const vertexShader = `
-  precision mediump float;
-  attribute float aSize;
-  attribute vec3 aColor;
-  varying vec3 vColor;
-  void main() {
-    vColor = aColor;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (300.0 / -mvPosition.z); // 視距離に応じて調整
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
+    precision mediump float;
+    attribute float aSize;
+    attribute vec3 aColor;
+    varying vec3 vColor;
+    void main() {
+      vColor = aColor;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = aSize * (300.0 / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `;
 
   const fragmentShader = `
-  precision mediump float;
-  uniform float uOpacity;
-  varying vec3 vColor;
-  void main() {
-    float d = length(gl_PointCoord - vec2(0.5));
-    if (d > 0.5) discard; // 丸い粒に
-    gl_FragColor = vec4(vColor, uOpacity);
-  }
-`;
+    precision mediump float;
+    uniform float uOpacity;
+    varying vec3 vColor;
+    void main() {
+      float d = length(gl_PointCoord - vec2(0.5));
+      if (d > 0.5) discard;
+      gl_FragColor = vec4(vColor, uOpacity);
+    }
+  `;
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -1737,6 +2375,73 @@ function createAfterglowParticles(position) {
   });
 }
 
+function updateStarCloneColors() {
+  const count = generatedConstellations.size;
+
+  let targetColor;
+  if (count >= 10) {
+    targetColor = 0x00ced1; // ミクカラー（シアン系）
+  } else if (count >= 8) {
+    targetColor = 0x0000ff; // 青
+  } else if (count >= 6) {
+    targetColor = 0x800080; // 紫
+  } else if (count >= 3) {
+    targetColor = 0xff69b4; // ピンク（ホットピンク）
+  } else {
+    targetColor = 0xaaaaaa; // グレー
+  }
+
+  const newColor = new THREE.Color(targetColor);
+
+  starClones.forEach((clone) => {
+    clone.traverse((child) => {
+      if (child.isMesh && child.material && child.material.color) {
+        const currentColor = child.material.color.clone();
+
+        gsap.to(currentColor, {
+          r: newColor.r,
+          g: newColor.g,
+          b: newColor.b,
+          duration: 1.2,
+          ease: 'power2.out',
+          onUpdate: () => {
+            child.material.color.setRGB(
+              currentColor.r,
+              currentColor.g,
+              currentColor.b
+            );
+          },
+        });
+      }
+    });
+  });
+}
+
+function updateStarSphereColor() {
+  if (!starSphere) return;
+
+  const count = generatedConstellations.size;
+  const maxCount = 10;
+  const t = Math.min(count / maxCount, 1);
+
+  // ベースの暗い色（今の色に近い）
+  const baseColor = new THREE.Color(0x101020);
+
+  // 明るくなる目標色（淡い水色や薄紫など好きな色で調整してください）
+  const brightColor = new THREE.Color(0x333366);
+
+  // 現在の目標色を計算
+  const targetColor = baseColor.clone().lerp(brightColor, t);
+
+  gsap.to(starSphere.material.color, {
+    r: targetColor.r,
+    g: targetColor.g,
+    b: targetColor.b,
+    duration: 1.5,
+    ease: 'power2.out',
+  });
+}
+
 // 再利用用ベクトルを関数外で定義
 // const tempBox = new THREE.Box3();
 const tempVec1 = new THREE.Vector3();
@@ -1806,13 +2511,13 @@ function updateCameraMovement() {
 const raycaster = new THREE.Raycaster();
 
 window.addEventListener('mousemove', onMouseMove);
-
+let safePlayer;
 let micClicked = false;
 let telescopeClickable = false;
 let telescopeClicked = false;
 let lyricsDisplayEnabled = false;
 document.addEventListener('DOMContentLoaded', () => {
-  const safePlayer = new SafeTextAlivePlayer({
+  safePlayer = new SafeTextAlivePlayer({
     app: { token: 'F3s1rJugVHrXdNRN' },
     mediaElement: document.querySelector('#media'),
   });
@@ -1826,8 +2531,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
 
+  clickHereElement.addEventListener('click', () => {
+    const label = clickHereElement.innerHTML;
+
+    if (label.includes('Click Here')) {
+      if (!safePlayer.player.video || !telescopeClickable) return;
+      console.log('望遠鏡がクリックされました');
+      startTelescopeTransition();
+    } else if (label.includes('Select Music')) {
+      console.log('マイクがクリックされました');
+      micClicked = true;
+      gsap.to(clickHereElement, {
+        opacity: 0,
+        duration: 0.6,
+        onComplete: () => {
+          clickHereObj.visible = false;
+          setupHoloSlider();
+          showCSSHologramAboveMic();
+
+          setTimeout(() => {
+            showClickHereAboveTelescope();
+          }, 3000);
+        },
+      });
+    }
+  });
+
   // 各オブジェクトへのクリック判定
-  window.addEventListener('click', (event) => {
+  window.addEventListener('mousedown', (event) => {
     const intersects = raycaster.intersectObjects(scene.children, true);
     if (intersects.length > 0) {
       const clickedObject = intersects[0].object;
@@ -1859,17 +2590,18 @@ document.addEventListener('DOMContentLoaded', () => {
         telescope &&
         isDescendantOf(clickedObject, telescope)
       ) {
-        // デバッグ
         if (!safePlayer.player.video || !telescopeClickable) return;
         console.log('望遠鏡がクリックされました');
+        telescopeClicked = true;
         startTelescopeTransition();
       } else if (
-        phase === 'init' &&
+        (phase === 'viewing' || phase === 'init') &&
         amp &&
-        isDescendantOf(clickedObject, amp)
+        isDescendantOf(clickedObject, amp) &&
+        !ampHologramObject.visible
       ) {
         console.log('アンプがクリックされました');
-        //safePlayer.loadSong(trackList[2]); // デバッグ用仮呼び出し
+        showAmpMessageUI();
       }
     }
   });
@@ -2045,6 +2777,95 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function showAmpMessageUI() {
+    const pos = new THREE.Vector3();
+    amp.getWorldPosition(pos);
+    pos.y += 2.0;
+    ampHologramObject.position.copy(pos);
+    ampHologramObject.visible = true;
+    ampHologramObject.scale.set(0.0001, 0.0001, 0.0001);
+
+    const ui = document.getElementById('ampMessageBillboard');
+    ui.style.opacity = 0;
+
+    // メッセージ生成（星座の達成状況を取得）
+    const total = Object.keys(constellationTargets).length;
+    const found = generatedConstellations.size;
+
+    let message = '';
+    const percent = (found / total) * 100;
+
+    if (percent === 100) {
+      message = 'すべての星座を発見したよ！<br>あなたは星の達人だ～！';
+    } else if (percent >= 70) {
+      message = 'たくさんの星座を見つけたね！あと少しで全部見つけられるよ！';
+    } else if (percent >= 30) {
+      message = 'いい感じ！まだまだ星座は眠ってるよ～！';
+    } else if (percent > 0) {
+      message = '星座が少し見えてきたね～！<br>もっと探してみよう！';
+    } else {
+      message =
+        '星座は見つからなかった…<br>望遠鏡を使って探してみよう！';
+    }
+
+    // フェーズによってUI切り替え
+    if (phase === 'viewing') {
+      ui.innerHTML = `
+      <div style="text-align: center; line-height: 1.6;">
+        <h2 style="font-size: 22px;">🎉 遊んでくれてありがとう！</h2>
+        <p style="font-size: 16px;">${total}個中 <strong>${found}個</strong> の星座を見つけたよ！</p>
+        <p style="font-size: 14px; color: #aaffff;">${message}</p>
+      </div>
+    `;
+    } else {
+      // 初期メッセージ
+      ui.innerHTML = `
+      <p style="text-align: center; font-size: 20px; margin: 1em">
+        マイクをクリックして曲を選ぼう<br><br>
+        曲を決めたら、望遠鏡をクリックしよう
+      </p>
+      <p style="text-align: center; font-size: 15px; margin: 1em">
+        どこかに星座が隠されてるかも…？
+      </p>
+    `;
+    }
+
+    // フェードイン表示
+    gsap.to(ampHologramObject.scale, {
+      x: 0.005,
+      y: 0.005,
+      z: 0.005,
+      duration: 0.8,
+      ease: 'expo.out',
+    });
+
+    gsap.to(ui, {
+      opacity: 1,
+      duration: 0.8,
+      ease: 'power2.out',
+    });
+
+    // 自動でフェードアウト
+    gsap.to(ampHologramObject.scale, {
+      x: 0.0001,
+      y: 0.0001,
+      z: 0.0001,
+      delay: 5,
+      duration: 1.5,
+      ease: 'expo.in',
+    });
+
+    gsap.to(ui, {
+      opacity: 0,
+      delay: 5,
+      duration: 1.5,
+      ease: 'expo.in',
+      onComplete: () => {
+        ampHologramObject.visible = false;
+      },
+    });
+  }
+
   // 望遠鏡へのトランジション
   function startTelescopeTransition() {
     if (phase !== 'init') return;
@@ -2106,6 +2927,12 @@ document.addEventListener('DOMContentLoaded', () => {
           fadeOutOverlay(async () => {
             hideModelsBeforeTelescopeScene();
             hideHologramUI();
+            placeConstellationTargets({
+              count: 13, // 最大星座数
+              minDistance: 20, // 星座同士の最小距離
+              cameraDistance: 55,
+            });
+            //showConstellationTargetDebugSpheres();
             switchToStarScene(); // 星空シーンへの切り替え
             showVignette();
             GUIsprite.visible = false;
@@ -2138,6 +2965,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     );
   }
+
+  let isDragging = false;
+  let lastCamQuat = new THREE.Quaternion();
+  camera.quaternion.clone(lastCamQuat);
+
+  // OrbitControlsが操作開始
+  controls.addEventListener('start', () => {
+    isDragging = true;
+  });
+
+  // カメラの変化があるたび呼ばれる
+  controls.addEventListener('change', () => {
+    if (!isDragging) return;
+
+    // カメラの回転が変わったか確認
+    if (!camera.quaternion.equals(lastCamQuat)) {
+      document.body.style.cursor = 'grabbing';
+    }
+
+    // 毎回記録を更新
+    lastCamQuat.copy(camera.quaternion);
+  });
+
+  // 操作終了
+  controls.addEventListener('end', () => {
+    isDragging = false;
+    document.body.style.cursor = 'grab';
+  });
 
   safePlayer.on('appready', () => {
     console.log('✅ アプリ準備完了');
@@ -2176,7 +3031,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'ストリートライト',
       artist: '加賀(ネギシャワーP)',
       url: 'https://piapro.jp/t/ULcJ/20250205120202',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694275,
       chordId: 2830730,
       repetitiveSegmentId: 2946478,
@@ -2187,7 +3042,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'アリフレーション',
       artist: '雨良 Amala',
       url: 'https://piapro.jp/t/SuQO/20250127235813',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694276,
       chordId: 2830731,
       repetitiveSegmentId: 2946479,
@@ -2198,7 +3053,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'インフォーマルダイブ',
       artist: '99piano',
       url: 'https://piapro.jp/t/Ppc9/20241224135843',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694277,
       chordId: 2830732,
       repetitiveSegmentId: 2946480,
@@ -2209,7 +3064,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'ハロー、フェルミ。',
       artist: 'ど～ぱみん',
       url: 'https://piapro.jp/t/oTaJ/20250204234235',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694278,
       chordId: 2830733,
       repetitiveSegmentId: 2946481,
@@ -2220,7 +3075,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'パレードレコード',
       artist: 'きさら',
       url: 'https://piapro.jp/t/GCgy/20250202202635',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694279,
       chordId: 2830734,
       repetitiveSegmentId: 2946482,
@@ -2231,7 +3086,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'ロンリーラン',
       artist: '海風太陽',
       url: 'https://piapro.jp/t/CyPO/20250128183915',
-      image: './Model/cover.png',
+      image: './texture/cover.png',
       beatId: 4694280,
       chordId: 2830735,
       repetitiveSegmentId: 2946483,
@@ -2252,25 +3107,6 @@ function onMouseMove(event) {
   アニメーションループ
 --------------------------*/
 
-const darkMaterial = new THREE.MeshBasicMaterial({ color: 'black' });
-const materialsCache = new Map();
-
-function darkenNonBloomed(obj) {
-  if (obj.isMesh || obj.isPoints || obj.isLine) {
-    if (!bloomLayer.test(obj.layers)) {
-      materialsCache.set(obj, obj.material);
-      obj.material = darkMaterial;
-    }
-  }
-}
-
-function restoreMaterials(obj) {
-  if (materialsCache.has(obj)) {
-    obj.material = materialsCache.get(obj);
-    materialsCache.delete(obj);
-  }
-}
-
 function animate() {
   requestAnimationFrame(animate);
   updateCameraMovement();
@@ -2283,7 +3119,8 @@ function animate() {
     if (mic && !micClicked) raycastTargets.push(mic);
     if (telescope && !telescopeClicked && micClicked && telescopeClickable)
       raycastTargets.push(telescope);
-    const intersects = raycaster.intersectObjects(raycastTargets, true); // mic は glb モデルのルートオブジェクト
+    if (amp && !ampHologramObject.visible) raycastTargets.push(amp);
+    const intersects = raycaster.intersectObjects(raycastTargets, true);
     document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'grab';
   }
 
@@ -2294,6 +3131,10 @@ function animate() {
 
   if (hologramObject.visible) {
     hologramObject.lookAt(camera.position);
+  }
+
+  if (ampHologramObject.visible) {
+    ampHologramObject.lookAt(camera.position);
   }
 
   lyricsGroup.children.forEach((mesh) => {
@@ -2324,7 +3165,6 @@ function animate() {
   cssRenderer.render(scene, camera);
 }
 animate();
-startShootingStars();
 
 /* --------------------------
   ウィンドウリサイズ対応
