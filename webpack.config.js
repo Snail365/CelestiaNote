@@ -15,7 +15,7 @@ module.exports = {
   resolve: {
     extensions: ['.js'],
   },
-  module: {
+  module: { // 念のため多くの拡張子に対応
     rules: [
       {
         test: /\.(obj|mtl|glb|gltf)$/,
@@ -40,7 +40,7 @@ module.exports = {
     splitChunks: {
       chunks: 'all',
     },
-    runtimeChunk: 'single', // ← ランタイムコードを分離しキャッシュ効率アップ
+    runtimeChunk: 'single', // ランタイムコードを分離
   },
   devtool: false, // 開発時はコメントアウト、本番時はfalse
   mode: 'production', // 開発時は'development'、本番時は'production'
@@ -73,6 +73,6 @@ module.exports = {
     },
   },
   performance: {
-    hints: false, // ファイルサイズ警告を非表示
+    hints: false, // ファイルサイズ警告を非表示（初期読み込みは遅くなるが動作自体に影響はない）
   },
 };

@@ -99,5 +99,5 @@ mode: 'development'
 
 ## ライセンス
 
-使用ライブラリ（Three.js, TextAlive App APIなど）は各ライセンス準拠
-
+使用ライブラリ（Three.js, TextAlive App APIなど）は各ライセンスに準拠します。
+3Dモデル、テクスチャ、画像ファイルはすべて自作です。
