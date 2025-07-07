@@ -8,19 +8,11 @@ import {
 import gsap from 'gsap';
 import { Player } from 'textalive-app-api';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-//import { all, max } from 'three/tsl';
-//import GUI from 'three/examples/jsm/libs/lil-gui.module.min.js';
-// import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-// import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-// import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import './styles.css';
 
 // THREEバージョン確認
 console.log('THREE.REVISION:', THREE.REVISION);
 
-/* --------------------------
-  Renderer の設定
---------------------------*/
 // WebGL
 const canvas = document.getElementById('sceneCanvas');
 const renderer = new THREE.WebGLRenderer({
@@ -43,9 +35,6 @@ cssRenderer.domElement.style.position = 'absolute';
 cssRenderer.domElement.style.top = 0;
 document.body.appendChild(cssRenderer.domElement);
 
-/* --------------------------
-  シーン・カメラ・ライト の設定
---------------------------*/
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -54,22 +43,6 @@ const camera = new THREE.PerspectiveCamera(
   100
 );
 camera.position.set(0, 1.6, 5); // ユーザーの目線高さ(1.6m)
-
-// const bloomLayer = new THREE.Layers();
-// bloomLayer.set(1); // Layer1をBloom専用として扱う
-
-// const renderScene = new RenderPass(scene, camera);
-
-// const bloomPass = new UnrealBloomPass(
-//   new THREE.Vector2(window.innerWidth, window.innerHeight),
-//   1.5,
-//   0.5,
-//   0.9
-// );
-
-// const bloomComposer = new EffectComposer(renderer);
-// bloomComposer.addPass(renderScene);
-// bloomComposer.addPass(bloomPass);
 
 const hudScene = new THREE.Scene();
 const hudCamera = new THREE.OrthographicCamera(
@@ -83,10 +56,6 @@ const hudCamera = new THREE.OrthographicCamera(
 hudCamera.position.z = 10;
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(ambientLight);
-
-/* --------------------------
-  オブジェクトロード
---------------------------*/
 
 const GUILoader = new THREE.TextureLoader();
 const arrowTexture = GUILoader.load('./Model/markup_ARROW.png');
@@ -106,7 +75,6 @@ GUIsprite.position.set(
   -window.innerHeight / 2 + 20,
   1
 );
-
 hudScene.add(GUIsprite);
 
 const GUIMouseMaterial = new THREE.SpriteMaterial({
@@ -121,7 +89,6 @@ GUIMouseSprite.position.set(
   -window.innerHeight / 2 + 40,
   1
 );
-
 hudScene.add(GUIMouseSprite);
 
 const GUIMouseArrowMaterial = new THREE.SpriteMaterial({
@@ -136,7 +103,6 @@ GUIMouseArrowSprite.position.set(
   -window.innerHeight / 2 + 40,
   1
 );
-
 hudScene.add(GUIMouseArrowSprite);
 
 let showWASD = false;
@@ -151,7 +117,7 @@ function updateHudSpritePosition() {
 }
 
 let mouseDragTimeline = null;
-let currentMouseDragMode = null; // 'center' または 'left'
+let currentMouseDragMode = null;
 function startMouseDragLoop(centered = false) {
   if (mouseDragTimeline) return; // 既に動いていたら二重起動しない
   currentMouseDragMode = centered ? 'center' : 'left';
@@ -428,6 +394,18 @@ telescopeLoader.load(
 
 const totalModels = 4; // 読み込むモデル数（amp, title, mic）
 let loadedModels = 0;
+const collidableObjects = []; // 衝突判定対象オブジェクト
+const collidableBoxes = []; // ↑から生成されたBox3
+
+// 衝突ボックス初期化関数（モデルロード後などに呼ぶ）
+function initCollisionBoxes() {
+  collidableBoxes.length = 0;
+  for (const obj of collidableObjects) {
+    if (!obj) continue;
+    const box = new THREE.Box3().setFromObject(obj);
+    collidableBoxes.push(box);
+  }
+}
 
 function onModelLoaded(model) {
   collidableObjects.push(model);
@@ -437,6 +415,56 @@ function onModelLoaded(model) {
     initCollisionBoxes(); // すべてのモデルが読み込まれたら一度だけ呼ぶ
     console.log('✅ すべてのモデル読み込み完了 → 衝突ボックス初期化');
   }
+}
+
+const keysPressed = {};
+window.addEventListener('keydown', (e) => (keysPressed[e.key] = true));
+window.addEventListener('keyup', (e) => (keysPressed[e.key] = false));
+// 再利用ベクトルを関数外で定義
+const tempVec1 = new THREE.Vector3();
+const tempVec2 = new THREE.Vector3();
+const moveVector = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const moveSpeed = 0.04;
+const right = new THREE.Vector3();
+const offset = new THREE.Vector3(0, -1.6, 0); // 足元で判定
+const collisionCenter = new THREE.Vector3(0, 0, 5);
+const collisionRadius = 4;
+function updateCameraMovement() {
+  // 向き計算
+  camera.getWorldDirection(direction);
+  direction.y = 0;
+  direction.normalize();
+  right.crossVectors(direction, camera.up).normalize();
+
+  moveVector.set(0, 0, 0);
+
+  if (keysPressed['ArrowUp'] || keysPressed['w']) {
+    moveVector.add(tempVec1.copy(direction).multiplyScalar(moveSpeed));
+  }
+  if (keysPressed['ArrowDown'] || keysPressed['s']) {
+    moveVector.add(tempVec1.copy(direction).multiplyScalar(-moveSpeed));
+  }
+  if (keysPressed['ArrowLeft'] || keysPressed['a']) {
+    moveVector.add(tempVec1.copy(right).multiplyScalar(-moveSpeed));
+  }
+  if (keysPressed['ArrowRight'] || keysPressed['d']) {
+    moveVector.add(tempVec1.copy(right).multiplyScalar(moveSpeed));
+  }
+
+  const hitPos = tempVec2.copy(camera.position).add(moveVector).add(offset);
+
+  // 範囲外なら無視
+  if (hitPos.distanceTo(collisionCenter) > collisionRadius) return;
+
+  // 衝突判定
+  for (const box of collidableBoxes) {
+    if (box.containsPoint(hitPos)) return;
+  }
+
+  // 移動
+  camera.position.add(moveVector);
+  controls.target.add(moveVector);
 }
 
 const billboardElement = document.getElementById('hologramBillboard');
@@ -2378,30 +2406,52 @@ function createAfterglowParticles(position) {
 function updateStarCloneColors() {
   const count = generatedConstellations.size;
 
-  let targetColor;
-  if (count >= 10) {
-    targetColor = 0x00ced1; // ミクカラー（シアン系）
-  } else if (count >= 8) {
-    targetColor = 0x0000ff; // 青
-  } else if (count >= 6) {
-    targetColor = 0x800080; // 紫
-  } else if (count >= 3) {
-    targetColor = 0xff69b4; // ピンク（ホットピンク）
+  const rainbowColors = [
+    0xff0000, // 赤
+    0xff7f00, // オレンジ
+    0xffff00, // 黄
+    0x00ff00, // 緑
+    0x0000ff, // 青
+    0x4b0082, // 藍
+    0x8b00ff, // 紫
+  ];
+
+  let getColorForClone;
+
+  if (count >= 12) {
+    getColorForClone = (index) => {
+      const hex = rainbowColors[index % rainbowColors.length];
+      return new THREE.Color(hex);
+    };
   } else {
-    targetColor = 0xaaaaaa; // グレー
+    let targetColor;
+    if (count >= 10) {
+      targetColor = 0x00ced1; // ミクカラー（シアン系）
+    } else if (count >= 8) {
+      targetColor = 0x0000ff; // 青
+    } else if (count >= 6) {
+      targetColor = 0x800080; // 紫
+    } else if (count >= 3) {
+      targetColor = 0xff69b4; // ピンク（ホットピンク）
+    } else {
+      targetColor = 0xaaaaaa; // グレー
+    }
+
+    const newColor = new THREE.Color(targetColor);
+    getColorForClone = () => newColor;
   }
 
-  const newColor = new THREE.Color(targetColor);
+  starClones.forEach((clone, index) => {
+    const lastTargetColor = getColorForClone(index);
 
-  starClones.forEach((clone) => {
     clone.traverse((child) => {
       if (child.isMesh && child.material && child.material.color) {
         const currentColor = child.material.color.clone();
 
         gsap.to(currentColor, {
-          r: newColor.r,
-          g: newColor.g,
-          b: newColor.b,
+          r: lastTargetColor.r,
+          g: lastTargetColor.g,
+          b: lastTargetColor.b,
           duration: 1.2,
           ease: 'power2.out',
           onUpdate: () => {
@@ -2424,11 +2474,11 @@ function updateStarSphereColor() {
   const maxCount = 10;
   const t = Math.min(count / maxCount, 1);
 
-  // ベースの暗い色（今の色に近い）
+  // ベースの暗い色
   const baseColor = new THREE.Color(0x101020);
 
-  // 明るくなる目標色（淡い水色や薄紫など好きな色で調整してください）
-  const brightColor = new THREE.Color(0x333366);
+  // 明るくなる目標色
+  const brightColor = new THREE.Color(0x202040);
 
   // 現在の目標色を計算
   const targetColor = baseColor.clone().lerp(brightColor, t);
@@ -2442,72 +2492,6 @@ function updateStarSphereColor() {
   });
 }
 
-// 再利用用ベクトルを関数外で定義
-// const tempBox = new THREE.Box3();
-const tempVec1 = new THREE.Vector3();
-const tempVec2 = new THREE.Vector3();
-const direction = new THREE.Vector3();
-const right = new THREE.Vector3();
-const offset = new THREE.Vector3(0, -1.6, 0);
-const moveVector = new THREE.Vector3();
-
-const moveSpeed = 0.05;
-const keysPressed = {};
-const collidableObjects = []; // 衝突判定対象オブジェクト
-const collidableBoxes = []; // ↑から生成されたBox3
-const collisionCenter = new THREE.Vector3(0, 0, 5);
-const collisionRadius = 4;
-
-// 衝突ボックス初期化関数（モデルロード後などに呼ぶ）
-function initCollisionBoxes() {
-  collidableBoxes.length = 0;
-  for (const obj of collidableObjects) {
-    if (!obj) continue;
-    const box = new THREE.Box3().setFromObject(obj);
-    collidableBoxes.push(box);
-  }
-}
-
-window.addEventListener('keydown', (e) => (keysPressed[e.key] = true));
-window.addEventListener('keyup', (e) => (keysPressed[e.key] = false));
-
-function updateCameraMovement() {
-  // 向き計算
-  camera.getWorldDirection(direction);
-  direction.y = 0;
-  direction.normalize();
-  right.crossVectors(direction, camera.up).normalize();
-
-  moveVector.set(0, 0, 0);
-
-  if (keysPressed['ArrowUp'] || keysPressed['w']) {
-    moveVector.add(tempVec1.copy(direction).multiplyScalar(moveSpeed));
-  }
-  if (keysPressed['ArrowDown'] || keysPressed['s']) {
-    moveVector.add(tempVec1.copy(direction).multiplyScalar(-moveSpeed));
-  }
-  if (keysPressed['ArrowLeft'] || keysPressed['a']) {
-    moveVector.add(tempVec1.copy(right).multiplyScalar(-moveSpeed));
-  }
-  if (keysPressed['ArrowRight'] || keysPressed['d']) {
-    moveVector.add(tempVec1.copy(right).multiplyScalar(moveSpeed));
-  }
-
-  const hitPos = tempVec2.copy(camera.position).add(moveVector).add(offset);
-
-  // 範囲外なら無視
-  if (hitPos.distanceTo(collisionCenter) > collisionRadius) return;
-
-  // 衝突判定
-  for (const box of collidableBoxes) {
-    if (box.containsPoint(hitPos)) return;
-  }
-
-  // 移動
-  camera.position.add(moveVector);
-  controls.target.add(moveVector);
-}
-
 const raycaster = new THREE.Raycaster();
 
 window.addEventListener('mousemove', onMouseMove);
@@ -2516,29 +2500,59 @@ let micClicked = false;
 let telescopeClickable = false;
 let telescopeClicked = false;
 let lyricsDisplayEnabled = false;
-document.addEventListener('DOMContentLoaded', () => {
-  safePlayer = new SafeTextAlivePlayer({
-    app: { token: 'F3s1rJugVHrXdNRN' },
-    mediaElement: document.querySelector('#media'),
-  });
-  // クリックされたオブジェクトの親(target)を探す
-  function isDescendantOf(object, target) {
-    let o = object;
-    while (o) {
-      if (o === target) return true;
-      o = o.parent;
-    }
-    return false;
+
+safePlayer = new SafeTextAlivePlayer({
+  app: { token: 'F3s1rJugVHrXdNRN' },
+  mediaElement: document.querySelector('#media'),
+});
+// クリックされたオブジェクトの親(target)を探す
+function isDescendantOf(object, target) {
+  let o = object;
+  while (o) {
+    if (o === target) return true;
+    o = o.parent;
   }
+  return false;
+}
 
-  clickHereElement.addEventListener('click', () => {
-    const label = clickHereElement.innerHTML;
+clickHereElement.addEventListener('click', () => {
+  const label = clickHereElement.innerHTML;
 
-    if (label.includes('Click Here')) {
-      if (!safePlayer.player.video || !telescopeClickable) return;
-      console.log('望遠鏡がクリックされました');
-      startTelescopeTransition();
-    } else if (label.includes('Select Music')) {
+  if (label.includes('Click Here')) {
+    if (!safePlayer.player.video || !telescopeClickable) return;
+    console.log('望遠鏡がクリックされました');
+    startTelescopeTransition();
+  } else if (label.includes('Select Music')) {
+    console.log('マイクがクリックされました');
+    micClicked = true;
+    gsap.to(clickHereElement, {
+      opacity: 0,
+      duration: 0.6,
+      onComplete: () => {
+        clickHereObj.visible = false;
+        setupHoloSlider();
+        showCSSHologramAboveMic();
+
+        setTimeout(() => {
+          showClickHereAboveTelescope();
+        }, 3000);
+      },
+    });
+  }
+});
+
+// 各オブジェクトへのクリック判定
+window.addEventListener('mousedown', (event) => {
+  const intersects = raycaster.intersectObjects(scene.children, true);
+  if (intersects.length > 0) {
+    const clickedObject = intersects[0].object;
+    console.log(clickedObject);
+    if (
+      phase === 'init' &&
+      !micClicked &&
+      mic &&
+      isDescendantOf(clickedObject, mic)
+    ) {
       console.log('マイクがクリックされました');
       micClicked = true;
       gsap.to(clickHereElement, {
@@ -2554,103 +2568,73 @@ document.addEventListener('DOMContentLoaded', () => {
           }, 3000);
         },
       });
+    } else if (
+      phase === 'init' &&
+      !telescopeClicked &&
+      telescope &&
+      isDescendantOf(clickedObject, telescope)
+    ) {
+      if (!safePlayer.player.video || !telescopeClickable) return;
+      console.log('望遠鏡がクリックされました');
+      telescopeClicked = true;
+      startTelescopeTransition();
+    } else if (
+      (phase === 'viewing' || phase === 'init') &&
+      amp &&
+      isDescendantOf(clickedObject, amp) &&
+      !ampHologramObject.visible
+    ) {
+      console.log('アンプがクリックされました');
+      showAmpMessageUI();
     }
-  });
+  }
+});
 
-  // 各オブジェクトへのクリック判定
-  window.addEventListener('mousedown', (event) => {
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length > 0) {
-      const clickedObject = intersects[0].object;
-      console.log(clickedObject);
-      if (
-        phase === 'init' &&
-        !micClicked &&
-        mic &&
-        isDescendantOf(clickedObject, mic)
-      ) {
-        console.log('マイクがクリックされました');
-        micClicked = true;
-        gsap.to(clickHereElement, {
-          opacity: 0,
-          duration: 0.6,
-          onComplete: () => {
-            clickHereObj.visible = false;
-            setupHoloSlider();
-            showCSSHologramAboveMic();
+let currentPlayButton = null;
+let currentSeekBar = null;
+let currentTimeDisplay = null;
+let currentIndex = 0;
 
-            setTimeout(() => {
-              showClickHereAboveTelescope();
-            }, 3000);
-          },
-        });
-      } else if (
-        phase === 'init' &&
-        !telescopeClicked &&
-        telescope &&
-        isDescendantOf(clickedObject, telescope)
-      ) {
-        if (!safePlayer.player.video || !telescopeClickable) return;
-        console.log('望遠鏡がクリックされました');
-        telescopeClicked = true;
-        startTelescopeTransition();
-      } else if (
-        (phase === 'viewing' || phase === 'init') &&
-        amp &&
-        isDescendantOf(clickedObject, amp) &&
-        !ampHologramObject.visible
-      ) {
-        console.log('アンプがクリックされました');
-        showAmpMessageUI();
-      }
-    }
-  });
+function setupHoloSlider() {
+  const slider = document.querySelector('.slider-wrapper');
+  slider.innerHTML = '';
 
-  let currentPlayButton = null;
-  let currentSeekBar = null;
-  let currentTimeDisplay = null;
-  let currentIndex = 0;
+  function formatTime(ms) {
+    const sec = Math.floor(ms / 1000);
+    const min = Math.floor(sec / 60)
+      .toString()
+      .padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${min}:${s}`;
+  }
 
-  function setupHoloSlider() {
-    const slider = document.querySelector('.slider-wrapper');
-    slider.innerHTML = '';
+  function updateSeekUI(posMs) {
+    const video = safePlayer.player.video;
+    if (!video) return;
 
-    function formatTime(ms) {
-      const sec = Math.floor(ms / 1000);
-      const min = Math.floor(sec / 60)
-        .toString()
-        .padStart(2, '0');
-      const s = (sec % 60).toString().padStart(2, '0');
-      return `${min}:${s}`;
-    }
+    const durMs = video.duration;
+    const pct = (posMs / durMs) * 100;
 
-    function updateSeekUI(posMs) {
-      const video = safePlayer.player.video;
-      if (!video) return;
+    currentSeekBar.value = pct;
+    currentTimeDisplay.textContent = `${formatTime(posMs)} / ${formatTime(
+      durMs
+    )}`;
+  }
 
-      const durMs = video.duration;
-      const pct = (posMs / durMs) * 100;
+  if (!safePlayer._holoSliderTimeUpdateRegistered) {
+    safePlayer._holoSliderTimeUpdateRegistered = true;
+    safePlayer.on('timeupdate', (posMs) => {
+      if (!currentSeekBar || !currentTimeDisplay) return;
 
-      currentSeekBar.value = pct;
-      currentTimeDisplay.textContent = `${formatTime(posMs)} / ${formatTime(
-        durMs
-      )}`;
-    }
+      updateSeekUI(posMs);
+    });
+  }
 
-    if (!safePlayer._holoSliderTimeUpdateRegistered) {
-      safePlayer._holoSliderTimeUpdateRegistered = true;
-      safePlayer.on('timeupdate', (posMs) => {
-        if (!currentSeekBar || !currentTimeDisplay) return;
-
-        updateSeekUI(posMs);
-      });
-    }
-
-    trackList.forEach((track, i) => {
-      const slide = document.createElement('div');
-      slide.className = 'slide';
-      slide.dataset.index = i;
-      slide.innerHTML = `
+  trackList.forEach((track, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'slide';
+    slide.dataset.index = i;
+    slide.innerHTML = `
       <div class="slide-content">
         <img class="jacket" src="${track.image}" alt="${track.title}" />
         <div class="song-info">
@@ -2665,436 +2649,462 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="time-display">00:00 / 00:00</span>
       </div>
     `;
-      slider.appendChild(slide);
-    });
+    slider.appendChild(slide);
+  });
 
-    const btnPrev = document.getElementById('slidePrev');
-    const btnNext = document.getElementById('slideNext');
+  const btnPrev = document.getElementById('slidePrev');
+  const btnNext = document.getElementById('slideNext');
 
-    btnPrev.addEventListener('click', () => updateSlide(-1));
-    btnNext.addEventListener('click', () => updateSlide(+1));
+  btnPrev.addEventListener('click', () => updateSlide(-1));
+  btnNext.addEventListener('click', () => updateSlide(+1));
 
-    async function updateSlide(offset) {
-      currentIndex =
-        (currentIndex + offset + trackList.length) % trackList.length;
-      const slideWidth = slider.querySelector('.slide').offsetWidth;
+  async function updateSlide(offset) {
+    currentIndex =
+      (currentIndex + offset + trackList.length) % trackList.length;
+    const slideWidth = slider.querySelector('.slide').offsetWidth;
 
-      gsap.to(slider, {
-        x: -slideWidth * currentIndex,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
-
-      const currentSlide = slider.children[currentIndex];
-      currentPlayButton = currentSlide.querySelector('.play-btn');
-      currentSeekBar = currentSlide.querySelector('.seek-bar');
-      currentTimeDisplay = currentSlide.querySelector('.time-display');
-
-      btnPrev.classList.add('disabled');
-      btnNext.classList.add('disabled');
-      currentPlayButton.classList.add('disabled');
-      currentPlayButton.textContent = '...';
-      currentSeekBar.classList.add('disabled');
-      currentSeekBar.value = 0;
-      currentTimeDisplay.textContent = '読み込み中...';
-
-      await safePlayer.loadSong(trackList[currentIndex]);
-
-      btnPrev.classList.remove('disabled');
-      btnNext.classList.remove('disabled');
-      currentPlayButton.classList.remove('disabled');
-      currentPlayButton.textContent = '▶';
-      currentSeekBar.value = 0;
-      const dur = safePlayer.player.video?.duration || 0;
-      currentTimeDisplay.textContent = `00:00 / ${formatTime(dur)}`;
-
-      currentPlayButton.onclick = async () => {
-        if (!safePlayer.videoReady) {
-          return;
-        }
-
-        if (safePlayer.isPlaying) {
-          await safePlayer.safePause();
-          currentPlayButton.textContent = '▶';
-          currentSeekBar.classList.add('disabled');
-          console.log(`[play button] Paused.`);
-        } else {
-          await safePlayer.safePlay();
-          currentPlayButton.textContent = '⏸';
-          currentSeekBar.classList.remove('disabled');
-          console.log(`[play button] Playing.`);
-        }
-      };
-
-      currentSeekBar.oninput = () => {
-        const video = safePlayer.player.video;
-        if (!video) return;
-
-        const newTime = (currentSeekBar.value / 100) * video.duration;
-
-        console.log(
-          `[seekBar.input] Requesting seek to: ${newTime.toFixed(0)}ms`
-        );
-        safePlayer.player.requestMediaSeek(newTime);
-      };
-    }
-
-    updateSlide(0);
-  }
-
-  function hideHologramUI() {
-    hologramObject.visible = false;
-  }
-
-  function showCSSHologramAboveMic() {
-    const micTop = new THREE.Vector3();
-    mic.getWorldPosition(micTop);
-    micTop.y += 2.1;
-
-    hologramObject.position.copy(micTop);
-    hologramObject.visible = true;
-
-    // スケールを0に初期化してからアニメーション
-    hologramObject.scale.set(0.0001, 0.0001, 0.0001);
-
-    // UI要素のopacityを0にしてからフェードイン
-    const ui = document.getElementById('hologramBillboard');
-    ui.style.opacity = 0;
-
-    // アニメーション同時に実行
-    gsap.to(hologramObject.scale, {
-      x: 0.005,
-      y: 0.005,
-      z: 0.005,
-      duration: 0.8,
-      ease: 'expo.out',
-    });
-
-    gsap.to(ui, {
-      opacity: 1,
-      duration: 0.8,
+    gsap.to(slider, {
+      x: -slideWidth * currentIndex,
+      duration: 0.3,
       ease: 'power2.out',
     });
+
+    const currentSlide = slider.children[currentIndex];
+    currentPlayButton = currentSlide.querySelector('.play-btn');
+    currentSeekBar = currentSlide.querySelector('.seek-bar');
+    currentTimeDisplay = currentSlide.querySelector('.time-display');
+
+    btnPrev.classList.add('disabled');
+    btnNext.classList.add('disabled');
+    currentPlayButton.classList.add('disabled');
+    currentPlayButton.textContent = '...';
+    currentSeekBar.classList.add('disabled');
+    currentSeekBar.value = 0;
+    currentTimeDisplay.textContent = '読み込み中...';
+
+    await safePlayer.loadSong(trackList[currentIndex]);
+
+    btnPrev.classList.remove('disabled');
+    btnNext.classList.remove('disabled');
+    currentPlayButton.classList.remove('disabled');
+    currentPlayButton.textContent = '▶';
+    currentSeekBar.value = 0;
+    const dur = safePlayer.player.video?.duration || 0;
+    currentTimeDisplay.textContent = `00:00 / ${formatTime(dur)}`;
+
+    currentPlayButton.onclick = async () => {
+      if (!safePlayer.videoReady) {
+        return;
+      }
+
+      if (safePlayer.isPlaying) {
+        await safePlayer.safePause();
+        currentPlayButton.textContent = '▶';
+        currentSeekBar.classList.add('disabled');
+        console.log(`[play button] Paused.`);
+      } else {
+        await safePlayer.safePlay();
+        currentPlayButton.textContent = '⏸';
+        currentSeekBar.classList.remove('disabled');
+        console.log(`[play button] Playing.`);
+      }
+    };
+
+    currentSeekBar.oninput = () => {
+      const video = safePlayer.player.video;
+      if (!video) return;
+
+      const newTime = (currentSeekBar.value / 100) * video.duration;
+
+      console.log(
+        `[seekBar.input] Requesting seek to: ${newTime.toFixed(0)}ms`
+      );
+      safePlayer.player.requestMediaSeek(newTime);
+    };
   }
 
-  function showAmpMessageUI() {
-    const pos = new THREE.Vector3();
-    amp.getWorldPosition(pos);
-    pos.y += 2.0;
-    ampHologramObject.position.copy(pos);
-    ampHologramObject.visible = true;
-    ampHologramObject.scale.set(0.0001, 0.0001, 0.0001);
+  updateSlide(0);
+}
 
-    const ui = document.getElementById('ampMessageBillboard');
-    ui.style.opacity = 0;
+function hideHologramUI() {
+  hologramObject.visible = false;
+}
 
-    // メッセージ生成（星座の達成状況を取得）
-    const total = Object.keys(constellationTargets).length;
-    const found = generatedConstellations.size;
+function showCSSHologramAboveMic() {
+  const micTop = new THREE.Vector3();
+  mic.getWorldPosition(micTop);
+  micTop.y += 2.1;
 
-    let message = '';
-    const percent = (found / total) * 100;
+  hologramObject.position.copy(micTop);
+  hologramObject.visible = true;
 
-    if (percent === 100) {
-      message = 'すべての星座を発見したよ！<br>あなたは星の達人だ～！';
-    } else if (percent >= 70) {
-      message = 'たくさんの星座を見つけたね！あと少しで全部見つけられるよ！';
-    } else if (percent >= 30) {
-      message = 'いい感じ！まだまだ星座は眠ってるよ～！';
-    } else if (percent > 0) {
-      message = '星座が少し見えてきたね～！<br>もっと探してみよう！';
-    } else {
-      message =
-        '星座は見つからなかった…<br>望遠鏡を使って探してみよう！';
-    }
+  // スケールを0に初期化してからアニメーション
+  hologramObject.scale.set(0.0001, 0.0001, 0.0001);
 
-    // フェーズによってUI切り替え
-    if (phase === 'viewing') {
-      ui.innerHTML = `
+  // UI要素のopacityを0にしてからフェードイン
+  const ui = document.getElementById('hologramBillboard');
+  ui.style.opacity = 0;
+
+  // アニメーション同時に実行
+  gsap.to(hologramObject.scale, {
+    x: 0.005,
+    y: 0.005,
+    z: 0.005,
+    duration: 0.8,
+    ease: 'expo.out',
+  });
+
+  gsap.to(ui, {
+    opacity: 1,
+    duration: 0.8,
+    ease: 'power2.out',
+  });
+}
+
+function showAmpMessageUI() {
+  const pos = new THREE.Vector3();
+  amp.getWorldPosition(pos);
+  pos.y += 2.0;
+  ampHologramObject.position.copy(pos);
+  ampHologramObject.visible = true;
+  ampHologramObject.scale.set(0.0001, 0.0001, 0.0001);
+
+  const ui = document.getElementById('ampMessageBillboard');
+  ui.style.opacity = 0;
+
+  // メッセージ生成（星座の達成状況を取得）
+  const total = Object.keys(constellationTargets).length;
+  const found = generatedConstellations.size;
+  const percent = (found / total) * 100;
+
+  let uiColor;
+  if (found >= 12) {
+    uiColor = '#ffffff';
+    ui.style.background =
+      'linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet)';
+    ui.style.color = '#000000';
+  } else if (found >= 10) {
+    uiColor = '#00ced1';
+  } else if (found >= 8) {
+    uiColor = '#0000ff';
+  } else if (found >= 6) {
+    uiColor = '#800080';
+  } else if (found >= 3) {
+    uiColor = '#ff69b4';
+  } else {
+    uiColor = '#aaaaaa';
+  }
+
+  if (found < 12) {
+    ui.style.backGround = 'rgba(0, 0, 0, 0.5)';
+    ui.style.color = uiColor;
+  }
+  ui.style.border = `2px solid ${uiColor}`;
+  ui.style.boxShadow = `0 0 20px ${uiColor}`;
+
+  const uiTextColor = new THREE.Color(uiColor).getStyle();
+
+  ui.querySelectorAll('p, h2, span, strong').forEach((el) => {
+    el.style.color = uiTextColor;
+  });
+
+  let message = '';
+  if (percent === 100) {
+    message = 'すべての星座を発見したよ！<br>あなたは星の達人だ～！';
+  } else if (percent >= 70) {
+    message = 'たくさんの星座を見つけたね！あと少しで全部見つけられるよ！';
+  } else if (percent >= 30) {
+    message = 'いい感じ！まだまだ星座は眠ってるよ～！';
+  } else if (percent > 0) {
+    message = '星座が少し見えてきたね～！<br>もっと探してみよう！';
+  } else {
+    message = '星座は見つからなかった…<br>もう一回探してみよう！';
+  }
+
+  // フェーズによってUI切り替え
+  if (phase === 'viewing') {
+    ui.innerHTML = `
       <div style="text-align: center; line-height: 1.6;">
-        <h2 style="font-size: 22px;">🎉 遊んでくれてありがとう！</h2>
+        <h2 style="font-size: 22px;">遊んでくれてありがとう！</h2>
         <p style="font-size: 16px;">${total}個中 <strong>${found}個</strong> の星座を見つけたよ！</p>
-        <p style="font-size: 14px; color: #aaffff;">${message}</p>
+        <p style="font-size: 14px; color: ${uiColor};">${message}</p>
       </div>
     `;
-    } else {
-      // 初期メッセージ
-      ui.innerHTML = `
-      <p style="text-align: center; font-size: 20px; margin: 1em">
-        マイクをクリックして曲を選ぼう<br><br>
-        曲を決めたら、望遠鏡をクリックしよう
-      </p>
-      <p style="text-align: center; font-size: 15px; margin: 1em">
-        どこかに星座が隠されてるかも…？
-      </p>
+  } else {
+    // 初期メッセージ
+    ui.innerHTML = `
+      <div style="text-align: center; line-height: 1.6;">
+        <h2 style="font-size: 22px; margin-bottom: 10px; color: #aaffff;">
+          曲を選んでみよう
+        </h2>
+        <p style="font-size: 16px; color: #aaffff;">
+          マイクをクリックして曲を選ぼう<br>
+          選び終わったら望遠鏡を覗いてみよう
+        </p>
+        <hr style="border: none; border-top: 1px solid #88ccff; margin: 1em 0;">
+        <p style="font-size: 14px; color: #aaffff;">
+          星空には隠れた星座があるかも…？
+        </p>
+      </div>
     `;
-    }
-
-    // フェードイン表示
-    gsap.to(ampHologramObject.scale, {
-      x: 0.005,
-      y: 0.005,
-      z: 0.005,
-      duration: 0.8,
-      ease: 'expo.out',
-    });
-
-    gsap.to(ui, {
-      opacity: 1,
-      duration: 0.8,
-      ease: 'power2.out',
-    });
-
-    // 自動でフェードアウト
-    gsap.to(ampHologramObject.scale, {
-      x: 0.0001,
-      y: 0.0001,
-      z: 0.0001,
-      delay: 5,
-      duration: 1.5,
-      ease: 'expo.in',
-    });
-
-    gsap.to(ui, {
-      opacity: 0,
-      delay: 5,
-      duration: 1.5,
-      ease: 'expo.in',
-      onComplete: () => {
-        ampHologramObject.visible = false;
-      },
-    });
   }
 
-  // 望遠鏡へのトランジション
-  function startTelescopeTransition() {
-    if (phase !== 'init') return;
-    if (!safePlayer.songReady) return; // 曲が読み込まれていない
-    safePlayer.safePause(); // 一時停止
-    gsap.to(clickHereElement, {
-      opacity: 0,
-      duration: 0.6,
-      onComplete: () => {
-        clickHereObj.visible = false;
-      },
-    });
-    phase = 'telescopeZooming';
-    const telescopePosition = telescope.position.clone();
-    const targetCameraPosition = camera.position.clone();
-    const tempCamera = new THREE.PerspectiveCamera();
-    tempCamera.position.copy(targetCameraPosition);
-    tempCamera.lookAt(
-      telescopePosition.x + 1,
-      telescopePosition.y,
-      telescopePosition.z
-    );
-    const targetQuaternion = tempCamera.quaternion.clone();
-    const startQuaternion = camera.quaternion.clone();
+  // フェードイン表示
+  gsap.to(ampHologramObject.scale, {
+    x: 0.005,
+    y: 0.005,
+    z: 0.005,
+    duration: 0.8,
+    ease: 'expo.out',
+  });
 
-    // 📸 カメラのズーム（位置）
-    gsap.to(camera.position, {
-      x: telescopePosition.x,
-      y: telescopePosition.y + 1.2,
-      z: telescopePosition.z + 0.6,
+  gsap.to(ui, {
+    opacity: 1,
+    duration: 0.8,
+    ease: 'power2.out',
+  });
+
+  // 自動でフェードアウト
+  gsap.to(ampHologramObject.scale, {
+    x: 0.0001,
+    y: 0.0001,
+    z: 0.0001,
+    delay: 5,
+    duration: 1.5,
+    ease: 'expo.in',
+  });
+
+  gsap.to(ui, {
+    opacity: 0,
+    delay: 5,
+    duration: 1.5,
+    ease: 'expo.in',
+    onComplete: () => {
+      ampHologramObject.visible = false;
+    },
+  });
+}
+
+// 望遠鏡へのトランジション
+function startTelescopeTransition() {
+  if (phase !== 'init') return;
+  if (!safePlayer.songReady) return; // 曲が読み込まれていない
+  safePlayer.safePause(); // 一時停止
+  gsap.to(clickHereElement, {
+    opacity: 0,
+    duration: 0.6,
+    onComplete: () => {
+      clickHereObj.visible = false;
+    },
+  });
+  phase = 'telescopeZooming';
+  const telescopePosition = telescope.position.clone();
+  const targetCameraPosition = camera.position.clone();
+  const tempCamera = new THREE.PerspectiveCamera();
+  tempCamera.position.copy(targetCameraPosition);
+  tempCamera.lookAt(
+    telescopePosition.x + 1,
+    telescopePosition.y,
+    telescopePosition.z
+  );
+  const targetQuaternion = tempCamera.quaternion.clone();
+  const startQuaternion = camera.quaternion.clone();
+
+  // カメラのズーム（位置）
+  gsap.to(camera.position, {
+    x: telescopePosition.x,
+    y: telescopePosition.y + 1.2,
+    z: telescopePosition.z + 0.6,
+    duration: 2,
+    ease: 'power2.inOut',
+  });
+
+  // カメラの向き（Quaternion補間）
+  gsap.to(
+    { t: 0 },
+    {
+      t: 1,
       duration: 2,
       ease: 'power2.inOut',
-    });
+      onUpdate() {
+        let progress = this.targets()[0].t;
+        camera.quaternion
+          .copy(startQuaternion)
+          .slerp(targetQuaternion, progress);
 
-    // 📸 カメラの向き（Quaternion補間）
-    gsap.to(
-      { t: 0 },
-      {
-        t: 1,
-        duration: 2,
-        ease: 'power2.inOut',
-        onUpdate() {
-          let progress = this.targets()[0].t;
-          camera.quaternion
-            .copy(startQuaternion)
-            .slerp(targetQuaternion, progress);
-
-          // カメラ方向に合わせて controls.target も更新
-          const currentTarget = new THREE.Vector3(0, 0, -0.01)
-            .applyQuaternion(camera.quaternion)
-            .add(camera.position);
-          controls.target.copy(currentTarget);
-        },
-        onComplete() {
-          const newTarget = new THREE.Vector3(0, 0, -0.01);
-          newTarget.applyQuaternion(camera.quaternion).add(camera.position);
-          controls.target.copy(newTarget);
-          phase = 'fadingOut';
-          fadeOutOverlay(async () => {
-            hideModelsBeforeTelescopeScene();
-            hideHologramUI();
-            placeConstellationTargets({
-              count: 13, // 最大星座数
-              minDistance: 20, // 星座同士の最小距離
-              cameraDistance: 55,
-            });
-            //showConstellationTargetDebugSpheres();
-            switchToStarScene(); // 星空シーンへの切り替え
-            showVignette();
-            GUIsprite.visible = false;
-            stopMouseDragLoop();
-            startMouseDragLoop(true);
-            setTimeout(() => {
-              gsap.to(GUIMouseSprite.material, {
-                opacity: 0,
-                duration: 1.2,
-                onComplete: () => {
-                  GUIMouseSprite.visible = false;
-                },
-              });
-              gsap.to(GUIMouseArrowSprite.material, {
-                opacity: 0,
-                duration: 1.2,
-                onComplete: () => {
-                  GUIMouseArrowSprite.visible = false;
-                },
-              });
-            }, 10000);
-            fadeInOverlay(() => {
-              phase = 'exploringStars';
-            });
-            await safePlayer._sleep(1500); // 再生まで少し待つ
-            safePlayer.restartCurrentSong();
-            lyricsDisplayEnabled = true;
+        // カメラ方向に合わせて controls.target も更新
+        const currentTarget = new THREE.Vector3(0, 0, -0.01)
+          .applyQuaternion(camera.quaternion)
+          .add(camera.position);
+        controls.target.copy(currentTarget);
+      },
+      onComplete() {
+        const newTarget = new THREE.Vector3(0, 0, -0.01);
+        newTarget.applyQuaternion(camera.quaternion).add(camera.position);
+        controls.target.copy(newTarget);
+        phase = 'fadingOut';
+        fadeOutOverlay(async () => {
+          hideModelsBeforeTelescopeScene();
+          hideHologramUI();
+          placeConstellationTargets({
+            count: 13, // 最大星座数
+            minDistance: 20, // 星座同士の最小距離
+            cameraDistance: 55,
           });
-        },
-      }
-    );
+          switchToStarScene(); // 星空シーンへの切り替え
+          showVignette();
+          GUIsprite.visible = false;
+          stopMouseDragLoop();
+          startMouseDragLoop(true);
+          setTimeout(() => {
+            gsap.to(GUIMouseSprite.material, {
+              opacity: 0,
+              duration: 1.2,
+              onComplete: () => {
+                GUIMouseSprite.visible = false;
+              },
+            });
+            gsap.to(GUIMouseArrowSprite.material, {
+              opacity: 0,
+              duration: 1.2,
+              onComplete: () => {
+                GUIMouseArrowSprite.visible = false;
+              },
+            });
+          }, 10000);
+          fadeInOverlay(() => {
+            phase = 'exploringStars';
+          });
+          await safePlayer._sleep(1500);
+          safePlayer.restartCurrentSong();
+          lyricsDisplayEnabled = true;
+        });
+      },
+    }
+  );
+}
+
+let isDragging = false;
+let lastCamQuat = new THREE.Quaternion();
+camera.quaternion.clone(lastCamQuat);
+
+// OrbitControlsが操作開始
+controls.addEventListener('start', () => {
+  isDragging = true;
+});
+
+// カメラの変化があるたび呼ばれる
+controls.addEventListener('change', () => {
+  if (!isDragging) return;
+
+  // カメラの回転が変わったか確認
+  if (!camera.quaternion.equals(lastCamQuat)) {
+    document.body.style.cursor = 'grabbing';
   }
 
-  let isDragging = false;
-  let lastCamQuat = new THREE.Quaternion();
-  camera.quaternion.clone(lastCamQuat);
-
-  // OrbitControlsが操作開始
-  controls.addEventListener('start', () => {
-    isDragging = true;
-  });
-
-  // カメラの変化があるたび呼ばれる
-  controls.addEventListener('change', () => {
-    if (!isDragging) return;
-
-    // カメラの回転が変わったか確認
-    if (!camera.quaternion.equals(lastCamQuat)) {
-      document.body.style.cursor = 'grabbing';
-    }
-
-    // 毎回記録を更新
-    lastCamQuat.copy(camera.quaternion);
-  });
-
-  // 操作終了
-  controls.addEventListener('end', () => {
-    isDragging = false;
-    document.body.style.cursor = 'grab';
-  });
-
-  safePlayer.on('appready', () => {
-    console.log('✅ アプリ準備完了');
-  });
-
-  safePlayer.on('videoready', () => {
-    console.log('✅ ビデオ準備完了');
-  });
-
-  safePlayer.on('play', () => {
-    const song = safePlayer.getCurrentSong();
-    if (song) {
-      console.log(`▶️ 再生中: ${song.name} by ${song.artist?.name ?? '不明'}`);
-    }
-  });
-
-  safePlayer.on('pause', () => {
-    console.warn('🛑 safePause 呼び出し（スタックトレース）');
-    console.trace();
-    console.log('pause');
-  });
-
-  safePlayer.on('stop', () => {
-    console.log('stop');
-    // if (safePlayer.loopOnEnd) {
-    //   // 次ループに備えてすべての data.returned を false に
-    //   allLyricData.forEach(({ data }) => {
-    //     data.returned = false;
-    //   });
-    //   //safePlayer.loopOnEnd = false;
-    // }
-  });
-
-  const trackList = [
-    {
-      title: 'ストリートライト',
-      artist: '加賀(ネギシャワーP)',
-      url: 'https://piapro.jp/t/ULcJ/20250205120202',
-      image: './texture/cover.png',
-      beatId: 4694275,
-      chordId: 2830730,
-      repetitiveSegmentId: 2946478,
-      lyricId: 67810,
-      lyricDiffId: 20654,
-    },
-    {
-      title: 'アリフレーション',
-      artist: '雨良 Amala',
-      url: 'https://piapro.jp/t/SuQO/20250127235813',
-      image: './texture/cover.png',
-      beatId: 4694276,
-      chordId: 2830731,
-      repetitiveSegmentId: 2946479,
-      lyricId: 67811,
-      lyricDiffId: 20655,
-    },
-    {
-      title: 'インフォーマルダイブ',
-      artist: '99piano',
-      url: 'https://piapro.jp/t/Ppc9/20241224135843',
-      image: './texture/cover.png',
-      beatId: 4694277,
-      chordId: 2830732,
-      repetitiveSegmentId: 2946480,
-      lyricId: 67812,
-      lyricDiffId: 20656,
-    },
-    {
-      title: 'ハロー、フェルミ。',
-      artist: 'ど～ぱみん',
-      url: 'https://piapro.jp/t/oTaJ/20250204234235',
-      image: './texture/cover.png',
-      beatId: 4694278,
-      chordId: 2830733,
-      repetitiveSegmentId: 2946481,
-      lyricId: 67813,
-      lyricDiffId: 20657,
-    },
-    {
-      title: 'パレードレコード',
-      artist: 'きさら',
-      url: 'https://piapro.jp/t/GCgy/20250202202635',
-      image: './texture/cover.png',
-      beatId: 4694279,
-      chordId: 2830734,
-      repetitiveSegmentId: 2946482,
-      lyricId: 67814,
-      lyricDiffId: 20658,
-    },
-    {
-      title: 'ロンリーラン',
-      artist: '海風太陽',
-      url: 'https://piapro.jp/t/CyPO/20250128183915',
-      image: './texture/cover.png',
-      beatId: 4694280,
-      chordId: 2830735,
-      repetitiveSegmentId: 2946483,
-      lyricId: 67815,
-      lyricDiffId: 20659,
-    },
-  ];
+  // 毎回記録を更新
+  lastCamQuat.copy(camera.quaternion);
 });
+
+// 操作終了
+controls.addEventListener('end', () => {
+  isDragging = false;
+  document.body.style.cursor = 'grab';
+});
+
+safePlayer.on('appready', () => {
+  console.log('✅ アプリ準備完了');
+});
+
+safePlayer.on('videoready', () => {
+  console.log('✅ ビデオ準備完了');
+});
+
+safePlayer.on('play', () => {
+  const song = safePlayer.getCurrentSong();
+  if (song) {
+    console.log(`▶️ 再生中: ${song.name} by ${song.artist?.name ?? '不明'}`);
+  }
+});
+
+safePlayer.on('pause', () => {
+  console.warn('🛑 safePause 呼び出し（スタックトレース）');
+  console.trace();
+  console.log('pause');
+});
+
+safePlayer.on('stop', () => {
+  console.log('stop');
+});
+
+const trackList = [
+  {
+    title: 'ストリートライト',
+    artist: '加賀(ネギシャワーP)',
+    url: 'https://piapro.jp/t/ULcJ/20250205120202',
+    image: './texture/cover.png',
+    beatId: 4694275,
+    chordId: 2830730,
+    repetitiveSegmentId: 2946478,
+    lyricId: 67810,
+    lyricDiffId: 20654,
+  },
+  {
+    title: 'アリフレーション',
+    artist: '雨良 Amala',
+    url: 'https://piapro.jp/t/SuQO/20250127235813',
+    image: './texture/cover.png',
+    beatId: 4694276,
+    chordId: 2830731,
+    repetitiveSegmentId: 2946479,
+    lyricId: 67811,
+    lyricDiffId: 20655,
+  },
+  {
+    title: 'インフォーマルダイブ',
+    artist: '99piano',
+    url: 'https://piapro.jp/t/Ppc9/20241224135843',
+    image: './texture/cover.png',
+    beatId: 4694277,
+    chordId: 2830732,
+    repetitiveSegmentId: 2946480,
+    lyricId: 67812,
+    lyricDiffId: 20656,
+  },
+  {
+    title: 'ハロー、フェルミ。',
+    artist: 'ど～ぱみん',
+    url: 'https://piapro.jp/t/oTaJ/20250204234235',
+    image: './texture/cover.png',
+    beatId: 4694278,
+    chordId: 2830733,
+    repetitiveSegmentId: 2946481,
+    lyricId: 67813,
+    lyricDiffId: 20657,
+  },
+  {
+    title: 'パレードレコード',
+    artist: 'きさら',
+    url: 'https://piapro.jp/t/GCgy/20250202202635',
+    image: './texture/cover.png',
+    beatId: 4694279,
+    chordId: 2830734,
+    repetitiveSegmentId: 2946482,
+    lyricId: 67814,
+    lyricDiffId: 20658,
+  },
+  {
+    title: 'ロンリーラン',
+    artist: '海風太陽',
+    url: 'https://piapro.jp/t/CyPO/20250128183915',
+    image: './texture/cover.png',
+    beatId: 4694280,
+    chordId: 2830735,
+    repetitiveSegmentId: 2946483,
+    lyricId: 67815,
+    lyricDiffId: 20659,
+  },
+];
 
 const mouse = new THREE.Vector2();
 
@@ -3150,14 +3160,6 @@ function animate() {
     controls.update();
   }
 
-  // === [1] 通常描画前に bloom レイヤーだけを描画 ===
-  // scene.traverse(darkenNonBloomed);
-  // camera.layers.set(1); // bloomLayer のみ描画
-  // bloomComposer.render(); // UnrealBloomPass 用
-  // scene.traverse(restoreMaterials);
-
-  // === [2] 通常描画 ===
-  // camera.layers.set(0); // 通常レイヤー
   renderer.clear();
   renderer.render(scene, camera);
   renderer.clearDepth(); // 深度バッファをクリア
@@ -3193,10 +3195,10 @@ window.addEventListener('resize', () => {
 });
 
 /* --------------------------
-  エラー対応
+  エラーデバッグ
 --------------------------*/
 window.onerror = function (message, source, lineno, colno, error) {
-  console.error('🌍 グローバルエラーキャッチ:', {
+  console.error('グローバルエラーキャッチ:', {
     message,
     source,
     lineno,

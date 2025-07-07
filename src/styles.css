@@ -95,10 +95,7 @@ body:active {
   }
 }
 
-#ampMessageBillboard {
-  width: 420px;
-  cursor: grab;
-}
+
 
 @keyframes glow {
   0% {
@@ -250,6 +247,8 @@ body:active {
   backdrop-filter: blur(4px);
   transform: translateZ(1px);
   pointer-events: none;
+  width: 420px;
+  cursor: grab;
 }
 
 .arrow {
