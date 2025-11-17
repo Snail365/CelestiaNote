@@ -57,6 +57,7 @@ hudCamera.position.z = 10;
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(ambientLight);
 
+// GUIは一新して、星座探知機能を実装予定
 const GUILoader = new THREE.TextureLoader();
 const arrowTexture = GUILoader.load('./Model/markup_ARROW.png');
 const wasdTexture = GUILoader.load('./Model/markup_WASD.png');
@@ -190,6 +191,7 @@ function stopMouseDragLoop() {
   }
 }
 
+// フロアのモデルは変更する予定
 let floor;
 const floorLoader = new GLTFLoader();
 floorLoader.load(
@@ -206,6 +208,8 @@ floorLoader.load(
     console.error('❌ GLB読み込みエラー:', error);
   }
 );
+
+// 星のモデルを複数配置(変更予定:大小さまざまに、他のオブジェクトも含めて、ステージを囲むようにすることで、ユーザーがわかりやすい移動制限の目印にする)
 const starRightPositions = [
   {
     position: new THREE.Vector3(2.8, 0, 6),
@@ -392,7 +396,7 @@ telescopeLoader.load(
   }
 );
 
-const totalModels = 4; // 読み込むモデル数（amp, title, mic）
+const totalModels = 4; // 読み込むモデル数（amp, title, mic, telescope）
 let loadedModels = 0;
 const collidableObjects = []; // 衝突判定対象オブジェクト
 const collidableBoxes = []; // ↑から生成されたBox3
@@ -469,7 +473,7 @@ function updateCameraMovement() {
 
 const billboardElement = document.getElementById('hologramBillboard');
 const hologramObject = new CSS3DObject(billboardElement);
-billboardElement.style.display = 'block'; // 念のため上書き
+billboardElement.style.display = 'block'; // 念のため
 hologramObject.scale.set(0.005, 0.005, 0.005);
 hologramObject.visible = false;
 scene.add(hologramObject);
@@ -551,7 +555,6 @@ function showClickHereAboveMic() {
 
 // 視点の操作の制限
 const controls = new OrbitControls(camera, renderer.domElement);
-// 操作を禁止する
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.enabled = true;
@@ -592,7 +595,7 @@ function fadeInOverlay(callback) {
   }, 1000); // 1秒後にコールバック
 }
 
-// 視点の端を暗くする
+// 視点の端を暗くする(変更点:程度を少し弱くするCSS側で調整か)
 function showVignette() {
   document.getElementById('vignetteOverlay').style.opacity = '1';
 }
@@ -767,6 +770,7 @@ class SafeTextAlivePlayer {
 
             if (!lyricsDisplayEnabled) return;
 
+            // ループ再生中に歌詞を戻す
             if (this.loopOnEnd) {
               //console.log('ループ再生中');
               //console.log('   ★ allLyricData:', allLyricData.map(d => d.startTime));
@@ -779,7 +783,7 @@ class SafeTextAlivePlayer {
                   position >= data.startTime
                 ) {
                   console.log(
-                    `  ↳ 戻す星群 idx=${idx} phrase="${data.text}" startTime=${data.startTime}`
+                    `戻す星群 idx=${idx} phrase="${data.text}" startTime=${data.startTime}`
                   );
 
                   const phrase = this.player.video.findPhrase(data.startTime);
@@ -799,6 +803,7 @@ class SafeTextAlivePlayer {
             }
 
             lastPosition = position;
+
             if (phase !== 'exploringStars') return;
 
             const phrase = this.player.video.findPhrase(position);
@@ -808,6 +813,7 @@ class SafeTextAlivePlayer {
               onNewPhrase(phrase, position);
             }
 
+            // 曲終了検出
             if (duration && position >= duration - 100) {
               console.log('曲終了検出');
 
@@ -1025,7 +1031,7 @@ scene.add(lyricsGroup);
 const allLyricData = [];
 
 function onNewPhrase(phrase, position) {
-  console.log('▶ onNewPhrase:', phrase.text, 'at', position);
+  console.log('onNewPhrase:', phrase.text, 'at', position);
 
   const startTime = phrase.startTime;
   const endTime = phrase.endTime || startTime + 4000; // endTime が無ければ仮に4秒に
@@ -1420,7 +1426,7 @@ function displayLyricInStars(
     console.log(`距離が遠すぎて星座未生成`);
   }
 
-  // --- ⭐ ヒント矢印表示処理 ---
+  // --- ⭐ ヒント矢印表示処理 ---(変更点: )
   if (!safePlayer?.loopOnEnd && minDist > 5 && minDist < 50) {
     const dir = new THREE.Vector3().subVectors(targetPos, center).normalize();
     createHintParticlesAt(center, dir, minDist, scatterDelay);
@@ -1601,6 +1607,8 @@ function removeConstellation(data) {
     });
   }
 }
+
+// 変更点:星座生成時は歌詞と同じようにアニメーションさせる
 const generatedConstellations = new Set();
 function createConstellationFromData({ data, position, name }) {
   if (generatedConstellations.has(name)) {
@@ -1659,6 +1667,7 @@ function createConstellationFromData({ data, position, name }) {
   }
 }
 
+// 変更点(星座の形状はもっと変える)
 const constellationsData = {
   hercules: {
     stars: [
@@ -1992,7 +2001,7 @@ function placeConstellationTargets({
         continue; // 範囲外なら再生成
       }
 
-      // （必要ならカメラ前方との角度制限もここで入れられます）
+      // （必要ならカメラ前方との角度制限もここで入れられる）
 
       const pos = camera
         ? camera.position.clone().add(dir.multiplyScalar(cameraDistance))
@@ -2133,12 +2142,6 @@ function spawnExplosionStars(center, count = 25) {
 }
 
 const textures = [
-  './texture/astro1.png',
-  './texture/astro2.png',
-  './texture/astro3.png',
-  './texture/astro1.png',
-  './texture/astro2.png',
-  './texture/astro3.png',
   './texture/astro1.png',
   './texture/astro2.png',
   './texture/astro3.png',
